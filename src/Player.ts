@@ -2,8 +2,11 @@ import type { Session } from "./Session.ts";
 import { type Bot, createBot } from "mineflayer";
 import { PlayerStatus } from "./PlayerStatus.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
-import { PlayerEvents } from "./PlayerEvents.ts";
+import type { PlayerEvents } from "./PlayerEvents.ts";
 
+/**
+ * Represents a controllable Minecraft player.
+ */
 export class Player extends TypedEventTarget<PlayerEvents> {
   private static readonly MINECRAFT_VERSION = "1.21.11";
   private static readonly DEFAULT_PORT = 25565;
@@ -13,16 +16,29 @@ export class Player extends TypedEventTarget<PlayerEvents> {
   #bot: Bot | null = null;
   #status: PlayerStatus = PlayerStatus.DISCONNECTED;
 
+  /**
+   * Creates a new {@link Player} with the given session.
+   *
+   * @param session The Microsoft session to authenticate with.
+   */
   public constructor(session: Session) {
     super();
     this.#session = session;
   }
 
-  public get status() {
+  /**
+   * Current connection status of the player.
+   */
+  public get status(): PlayerStatus {
     return this.#status;
   }
 
-  public connect(address: string) {
+  /**
+   * Connects this player to a Minecraft server.
+   *
+   * @param address The server address to connect to.
+   */
+  public connect(address: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       if (this.#bot !== null) {
         reject(new Error("Player is already connected"));
@@ -68,7 +84,10 @@ export class Player extends TypedEventTarget<PlayerEvents> {
     });
   }
 
-  public disconnect() {
+  /**
+   * Disconnects this player from the current server.
+   */
+  public disconnect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       if (this.#bot === null) {
         reject(new Error("Player is not connected"));
