@@ -55,13 +55,21 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         host,
         port,
         username: this.#session.username,
-        auth: "offline",
-        session: {
-          accessToken: this.#session.token,
-          selectedProfile: {
-            id: this.#session.uuid,
-            name: this.#session.username,
-          },
+        skipValidation: true,
+        auth: (client, options) => {
+          // @ts-expect-error: this property is vital but not exposed in typings
+          options.haveCredentials = true;
+
+          client.username = this.#session.username;
+          client.session = {
+            accessToken: this.#session.token,
+            selectedProfile: {
+              id: this.#session.uuid.replace(/-/g, ""),
+              name: this.#session.username,
+            },
+          };
+          options.accessToken = this.#session.token;
+          options.connect!(client);
         },
         version: Player.MINECRAFT_VERSION,
         brand: Player.CLIENT_BRAND,
