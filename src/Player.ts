@@ -1,19 +1,18 @@
 import type { Session } from "./Session.ts";
-import { type Bot, createBot } from "mineflayer";
 import { PlayerStatus } from "./PlayerStatus.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
 import type { PlayerEvents } from "./PlayerEvents.ts";
+import { Client } from "./client/Client.ts";
 
 /**
  * Represents a controllable Minecraft player.
  */
 export class Player extends TypedEventTarget<PlayerEvents> {
-  private static readonly MINECRAFT_VERSION = "1.21.11";
   private static readonly DEFAULT_PORT = 25565;
   private static readonly CLIENT_BRAND = "vanilla";
 
   readonly #session: Session;
-  #bot: Bot | null = null;
+  private client: Client | null = null;
   #status: PlayerStatus = PlayerStatus.DISCONNECTED;
 
   /**
@@ -40,7 +39,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
    */
   public connect(address: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      if (this.#bot !== null) {
+      if (this.client !== null) {
         reject(new Error("Player is already connected"));
         return;
       }
@@ -51,88 +50,36 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         ? Player.DEFAULT_PORT
         : Number.parseInt(address.substring(portDelim + 1));
 
-      this.#bot = createBot({
-        host,
-        port,
-        username: this.#session.username,
-        skipValidation: true,
-        auth: (client, options) => {
-          // @ts-expect-error: this property is vital but not exposed in typings
-          options.haveCredentials = true;
+      const client = new Client(this.#session, Player.CLIENT_BRAND);
+      this.client = client;
 
-          client.username = this.#session.username;
-          client.session = {
-            accessToken: this.#session.token,
-            selectedProfile: {
-              id: this.#session.uuid.replace(/-/g, ""),
-              name: this.#session.username,
-            },
-          };
-          options.accessToken = this.#session.token;
-          options.connect!(client);
-        },
-        version: Player.MINECRAFT_VERSION,
-        brand: Player.CLIENT_BRAND,
-        hideErrors: true,
-        logErrors: false,
-      });
+      client.addEventListener("login", () => {
+        this.#status = PlayerStatus.ONLINE;
+        this.dispatchEvent("statusChange", void 0);
+        resolve();
+      }, { once: true });
+
+      client.addEventListener("disconnect", () => {
+        this.#status = PlayerStatus.DISCONNECTED;
+        this.client = null;
+        this.dispatchEvent("statusChange", void 0);
+        reject(new Error("Disconnected before login"));
+      }, { once: true });
 
       this.#status = PlayerStatus.CONNECTING;
       this.dispatchEvent("statusChange", void 0);
 
-      this.addEventListener("statusChange", () => {
-        if (this.#status !== PlayerStatus.ONLINE) {
-          reject(new Error("Failed to connect"));
-          return;
-        }
-        resolve();
-      }, { once: true });
-
-      this.registerEvents();
+      client.connect(host, port).catch(reject);
     });
   }
 
   /**
    * Disconnects this player from the current server.
    */
-  public disconnect(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      if (this.#bot === null) {
-        reject(new Error("Player is not connected"));
-        return;
-      }
-
-      this.#bot.quit();
-
-      this.addEventListener("statusChange", () => {
-        if (this.#status !== PlayerStatus.DISCONNECTED) {
-          reject(new Error("Failed to disconnect"));
-          return;
-        }
-        resolve();
-      }, { once: true });
-    });
-  }
-
-  private registerEvents() {
-    if (this.#bot === null) {
+  public disconnect(): void {
+    if (this.client === null) {
       throw new Error("Player is not connected");
     }
-
-    this.#bot.once("spawn", () => {
-      this.#status = PlayerStatus.ONLINE;
-      this.dispatchEvent("statusChange", void 0);
-    });
-
-    this.#bot.once("end", () => {
-      this.#status = PlayerStatus.DISCONNECTED;
-      this.dispatchEvent("statusChange", void 0);
-
-      this.#bot = null;
-    });
-
-    this.#bot.on("resourcePack", () => {
-      this.#bot!.acceptResourcePack();
-    });
+    this.client.disconnect();
   }
 }
