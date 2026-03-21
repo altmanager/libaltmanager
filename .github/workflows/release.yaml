@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+
+      - name: Set version from release tag
+        run: |
+          sed -i 's/"version": "[^"]*"/"version": "${{ github.event.release.tag_name }}"/' deno.json
+
+      - name: Publish to JSR
+        run: deno publish
