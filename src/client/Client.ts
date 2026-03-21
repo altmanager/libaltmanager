@@ -1,30 +1,44 @@
-import { constants, publicEncrypt } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { Connection } from "./Connection.ts";
-import { PacketReader } from "./PacketReader.ts";
-import { PacketWriter } from "./PacketWriter.ts";
-import { PacketID } from "./PacketID.ts";
 import { State } from "./State.ts";
 import { TypedEventTarget } from "../TypedEventTarget.ts";
 import type { ClientEvents } from "./ClientEvents.ts";
 import type { Session } from "../Session.ts";
+import type { ClientPacket } from "./packet/ClientPacket.ts";
+import { VarInt } from "./VarInt.ts";
+import { ClientInformation } from "./packet/client/ClientInformation.ts";
+import { ConfigurationAcknowledged } from "./packet/client/ConfigurationAcknowledged.ts";
+import { ConfigurationKeepAlive as ClientConfigurationKeepAlive } from "./packet/client/ConfigurationKeepAlive.ts";
+import { ConfigurationResourcePack } from "./packet/client/ConfigurationResourcePack.ts";
+import { FinishConfiguration } from "./packet/client/FinishConfiguration.ts";
+import { Hello as ClientHello } from "./packet/client/Hello.ts";
+import { Intention } from "./packet/client/Intention.ts";
+import { Key } from "./packet/client/Key.ts";
+import { LoginAcknowledged } from "./packet/client/LoginAcknowledged.ts";
+import { PlayKeepAlive as ClientPlayKeepAlive } from "./packet/client/PlayKeepAlive.ts";
+import { PlayResourcePack } from "./packet/client/PlayResourcePack.ts";
+import { SelectKnownPacks as ClientSelectKnownPacks } from "./packet/client/SelectKnownPacks.ts";
+import { ConfigurationDisconnect } from "./packet/server/ConfigurationDisconnect.ts";
+import { ConfigurationKeepAlive as ServerConfigurationKeepAlive } from "./packet/server/ConfigurationKeepAlive.ts";
+import { ConfigurationResourcePackPush } from "./packet/server/ConfigurationResourcePackPush.ts";
+import { ConfigurationTransfer } from "./packet/server/ConfigurationTransfer.ts";
+import { FinishConfiguration as ServerFinishConfiguration } from "./packet/server/FinishConfiguration.ts";
+import { Hello as ServerHello } from "./packet/server/Hello.ts";
+import { Login } from "./packet/server/Login.ts";
+import { LoginCompression } from "./packet/server/LoginCompression.ts";
+import { LoginDisconnect } from "./packet/server/LoginDisconnect.ts";
+import { LoginFinished } from "./packet/server/LoginFinished.ts";
+import { PlayDisconnect } from "./packet/server/PlayDisconnect.ts";
+import { PlayKeepAlive as ServerPlayKeepAlive } from "./packet/server/PlayKeepAlive.ts";
+import { PlayResourcePackPush } from "./packet/server/PlayResourcePackPush.ts";
+import { PlayTransfer } from "./packet/server/PlayTransfer.ts";
+import { SelectKnownPacks as ServerSelectKnownPacks } from "./packet/server/SelectKnownPacks.ts";
+import { StartConfiguration } from "./packet/server/StartConfiguration.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
  */
 export class Client extends TypedEventTarget<ClientEvents> {
-  private static readonly PROTOCOL_VERSION = 774;
-
-  private static readonly LOCALE = "en_GB";
-  private static readonly VIEW_DISTANCE = 2;
-  private static readonly CHAT_MODE = 0;
-  private static readonly CHAT_COLORS = true;
-  private static readonly SKIN_PARTS = 0x7f;
-  private static readonly MAIN_HAND = 1;
-  private static readonly ENABLE_TEXT_FILTERING = false;
-  private static readonly ALLOW_SERVER_LISTINGS = true;
-  private static readonly PARTICLE_STATUS = 2;
-
   private readonly session: Session;
   private readonly brand: string;
   private connection: Connection = new Connection();
@@ -53,8 +67,10 @@ export class Client extends TypedEventTarget<ClientEvents> {
     this.transferring = false;
 
     await this.connection.connect(host, port);
-    await this.sendHandshake(host, port);
-    await this.sendLoginStart();
+    await this.sendPacket(new Intention(host, port));
+    await this.sendPacket(
+      new ClientHello(this.session.username, this.session.uuid),
+    );
 
     this.readLoop().catch((e) => {
       console.error(`[Client] readLoop uncaught:`, e);
@@ -76,7 +92,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
         if (payload === null) {
           break;
         }
-        await this.handlePacket(payload as Uint8Array<ArrayBuffer>);
+        await this.handlePacket(payload);
       }
     } finally {
       if (!this.transferring) {
@@ -91,43 +107,41 @@ export class Client extends TypedEventTarget<ClientEvents> {
   }
 
   private async handlePacket(payload: Uint8Array<ArrayBuffer>): Promise<void> {
-    const reader = new PacketReader(payload);
-    const packetId = reader.readVarInt();
+    const [packetId, idSize] = VarInt.decode(payload, 0);
+    const buf = payload.slice(idSize);
 
     switch (this.state) {
       case State.LOGIN:
-        await this.handleLoginPacket(packetId, reader);
+        await this.handleLoginPacket(packetId, buf);
         break;
       case State.CONFIGURATION:
-        await this.handleConfigurationPacket(packetId, reader);
+        await this.handleConfigurationPacket(packetId, buf);
         break;
       case State.PLAY:
-        await this.handlePlayPacket(packetId, reader);
+        await this.handlePlayPacket(packetId, buf);
         break;
     }
   }
 
   private async handleLoginPacket(
     packetId: number,
-    reader: PacketReader,
+    buf: Uint8Array<ArrayBuffer>,
   ): Promise<void> {
     switch (packetId) {
-      case PacketID.SERVER_HELLO:
-        await this.handleHello(reader);
+      case ServerHello.ID:
+        await this.handleHello(new ServerHello(buf));
         break;
-      case PacketID.SERVER_LOGIN_COMPRESSION:
-        this.connection.setCompressionThreshold(reader.readVarInt());
-        break;
-      case PacketID.SERVER_LOGIN_FINISHED:
-        await this.sendPacket(
-          new PacketWriter()
-            .writeVarInt(PacketID.CLIENT_LOGIN_ACKNOWLEDGED)
-            .build(),
+      case LoginCompression.ID:
+        this.connection.setCompressionThreshold(
+          new LoginCompression(buf).threshold,
         );
-        this.state = State.CONFIGURATION;
-        await this.sendClientInformation();
         break;
-      case PacketID.SERVER_LOGIN_DISCONNECT:
+      case LoginFinished.ID:
+        await this.sendPacket(new LoginAcknowledged());
+        this.state = State.CONFIGURATION;
+        await this.sendPacket(new ClientInformation());
+        break;
+      case LoginDisconnect.ID:
         this.connection.close();
         break;
     }
@@ -135,87 +149,81 @@ export class Client extends TypedEventTarget<ClientEvents> {
 
   private async handleConfigurationPacket(
     packetId: number,
-    reader: PacketReader,
+    buf: Uint8Array<ArrayBuffer>,
   ): Promise<void> {
     switch (packetId) {
-      case PacketID.SERVER_SELECT_KNOWN_PACKS:
+      case ServerConfigurationKeepAlive.ID:
         await this.sendPacket(
-          new PacketWriter()
-            .writeVarInt(PacketID.CLIENT_SELECT_KNOWN_PACKS)
-            .writeVarInt(0)
-            .build(),
+          new ClientConfigurationKeepAlive(
+            new ServerConfigurationKeepAlive(buf).id,
+          ),
         );
         break;
-      case PacketID.SERVER_KEEP_ALIVE:
-        await this.handleKeepAlive(reader, PacketID.CLIENT_KEEP_ALIVE);
-        break;
-      case PacketID.SERVER_RESOURCE_PACK_PUSH:
+      case ConfigurationResourcePackPush.ID:
         await this.handleResourcePackPush(
-          reader,
-          PacketID.CLIENT_RESOURCE_PACK,
+          new ConfigurationResourcePackPush(buf),
+          new ConfigurationResourcePack("", 0),
         );
         break;
-      case PacketID.SERVER_FINISH_CONFIGURATION:
-        await this.sendPacket(
-          new PacketWriter()
-            .writeVarInt(PacketID.CLIENT_FINISH_CONFIGURATION)
-            .build(),
-        );
+      case ServerSelectKnownPacks.ID:
+        await this.sendPacket(new ClientSelectKnownPacks());
+        break;
+      case ServerFinishConfiguration.ID:
+        await this.sendPacket(new FinishConfiguration());
         this.state = State.PLAY;
         break;
-      case PacketID.SERVER_DISCONNECT:
+      case ConfigurationDisconnect.ID:
         this.connection.close();
+        break;
+      case ConfigurationTransfer.ID:
+        await this.handleTransfer(new ConfigurationTransfer(buf));
         break;
     }
   }
 
   private async handlePlayPacket(
     packetId: number,
-    reader: PacketReader,
+    buf: Uint8Array<ArrayBuffer>,
   ): Promise<void> {
     switch (packetId) {
-      case PacketID.SERVER_LOGIN:
+      case Login.ID:
         this.dispatchEvent("login", void 0);
         break;
-      case PacketID.SERVER_KEEP_ALIVE_PLAY:
-        await this.handleKeepAlive(reader, PacketID.CLIENT_KEEP_ALIVE_PLAY);
-        break;
-      case PacketID.SERVER_START_CONFIGURATION:
+      case ServerPlayKeepAlive.ID:
         await this.sendPacket(
-          new PacketWriter()
-            .writeVarInt(PacketID.CLIENT_CONFIGURATION_ACKNOWLEDGED)
-            .build(),
+          new ClientPlayKeepAlive(new ServerPlayKeepAlive(buf).id),
         );
+        break;
+      case StartConfiguration.ID:
+        await this.sendPacket(new ConfigurationAcknowledged());
         this.state = State.CONFIGURATION;
         break;
-      case PacketID.SERVER_RESOURCE_PACK_PUSH_PLAY:
+      case PlayResourcePackPush.ID:
         await this.handleResourcePackPush(
-          reader,
-          PacketID.CLIENT_RESOURCE_PACK_PLAY,
+          new PlayResourcePackPush(buf),
+          new PlayResourcePack("", 0),
         );
         break;
-      case PacketID.SERVER_TRANSFER:
-        await this.handleTransfer(reader);
-        break;
-      case PacketID.SERVER_DISCONNECT_PLAY:
+      case PlayDisconnect.ID:
         this.connection.close();
+        break;
+      case PlayTransfer.ID:
+        await this.handleTransfer(new PlayTransfer(buf));
         break;
     }
   }
 
-  private async handleHello(reader: PacketReader): Promise<void> {
-    const serverId = reader.readString();
-    const publicKey = reader.readByteArray();
-    const verifyToken = reader.readByteArray();
-
+  private async handleHello(packet: ServerHello): Promise<void> {
     const sharedSecret = crypto.getRandomValues(
-      new Uint8Array(16) as Uint8Array<ArrayBuffer>,
+      new Uint8Array(16),
     );
 
     const { publicEncrypt, constants } = await import("node:crypto");
 
     const pem = `-----BEGIN PUBLIC KEY-----\n${
-      btoa(String.fromCharCode(...publicKey)).match(/.{1,64}/g)!.join("\n")
+      btoa(String.fromCharCode(...packet.publicKey)).match(/.{1,64}/g)!.join(
+        "\n",
+      )
     }\n-----END PUBLIC KEY-----`;
 
     const encryptedSecret = publicEncrypt(
@@ -225,20 +233,38 @@ export class Client extends TypedEventTarget<ClientEvents> {
 
     const encryptedVerifyToken = publicEncrypt(
       { key: pem, padding: constants.RSA_PKCS1_PADDING },
-      Buffer.from(verifyToken),
+      Buffer.from(packet.verifyToken),
     ) as Uint8Array<ArrayBuffer>;
 
-    await this.joinSession(serverId, sharedSecret, publicKey);
+    if (packet.shouldAuthenticate) {
+      await this.joinSession(packet.serverId, sharedSecret, packet.publicKey);
+    }
 
-    await this.sendPacket(
-      new PacketWriter()
-        .writeVarInt(PacketID.CLIENT_KEY)
-        .writeByteArray(encryptedSecret)
-        .writeByteArray(encryptedVerifyToken)
-        .build(),
-    );
-
+    await this.sendPacket(new Key(encryptedSecret, encryptedVerifyToken));
     this.connection.enableEncryption(sharedSecret);
+  }
+
+  private async handleResourcePackPush(
+    packet: ConfigurationResourcePackPush | PlayResourcePackPush,
+    response: ConfigurationResourcePack | PlayResourcePack,
+  ): Promise<void> {
+    await this.sendPacket(
+      new (response.constructor as new (
+        uuid: string,
+        result: number,
+      ) => typeof response)(
+        packet.uuid,
+        0,
+      ),
+    );
+  }
+
+  private async handleTransfer(
+    packet: ConfigurationTransfer | PlayTransfer,
+  ): Promise<void> {
+    this.transferring = true;
+    this.connection.close();
+    await this.connect(packet.host, packet.port);
   }
 
   private async joinSession(
@@ -277,12 +303,10 @@ export class Client extends TypedEventTarget<ClientEvents> {
     sharedSecret: Uint8Array<ArrayBuffer>,
     publicKey: Uint8Array<ArrayBuffer>,
   ): Promise<string> {
-    const serverIdBytes = new TextEncoder().encode(serverId) as Uint8Array<
-      ArrayBuffer
-    >;
+    const serverIdBytes = new TextEncoder().encode(serverId);
     const combined = new Uint8Array(
       serverIdBytes.length + sharedSecret.length + publicKey.length,
-    ) as Uint8Array<ArrayBuffer>;
+    );
     combined.set(serverIdBytes);
     combined.set(sharedSecret, serverIdBytes.length);
     combined.set(publicKey, serverIdBytes.length + sharedSecret.length);
@@ -296,86 +320,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
     return BigInt.asIntN(160, BigInt(`0x${hex}`)).toString(16);
   }
 
-  private async handleKeepAlive(
-    reader: PacketReader,
-    responseId: number,
-  ): Promise<void> {
-    const id = reader.readLong();
-    await this.sendPacket(
-      new PacketWriter()
-        .writeVarInt(responseId)
-        .writeLong(id)
-        .build(),
-    );
-  }
-
-  private async handleResourcePackPush(
-    reader: PacketReader,
-    responseId: number,
-  ): Promise<void> {
-    const uuid = reader.readUuid();
-    reader.readString();
-    reader.readString();
-    reader.readBoolean();
-
-    await this.sendPacket(
-      new PacketWriter()
-        .writeVarInt(responseId)
-        .writeUuid(uuid)
-        .writeVarInt(0)
-        .build(),
-    );
-  }
-
-  private async handleTransfer(reader: PacketReader): Promise<void> {
-    const host = reader.readString();
-    const port = reader.readUnsignedShort();
-
-    this.transferring = true;
-    this.connection.close();
-    await this.connect(host, port);
-  }
-
-  private async sendHandshake(host: string, port: number): Promise<void> {
-    await this.sendPacket(
-      new PacketWriter()
-        .writeVarInt(PacketID.HANDSHAKING_INTENTION)
-        .writeVarInt(Client.PROTOCOL_VERSION)
-        .writeString(host)
-        .writeUnsignedShort(port)
-        .writeVarInt(2)
-        .build(),
-    );
-  }
-
-  private async sendLoginStart(): Promise<void> {
-    await this.sendPacket(
-      new PacketWriter()
-        .writeVarInt(PacketID.CLIENT_HELLO)
-        .writeString(this.session.username)
-        .writeUuid(this.session.uuid)
-        .build(),
-    );
-  }
-
-  private async sendClientInformation(): Promise<void> {
-    await this.sendPacket(
-      new PacketWriter()
-        .writeVarInt(PacketID.CLIENT_INFORMATION)
-        .writeString(Client.LOCALE)
-        .writeByte(Client.VIEW_DISTANCE)
-        .writeVarInt(Client.CHAT_MODE)
-        .writeBoolean(Client.CHAT_COLORS)
-        .writeByte(Client.SKIN_PARTS)
-        .writeVarInt(Client.MAIN_HAND)
-        .writeBoolean(Client.ENABLE_TEXT_FILTERING)
-        .writeBoolean(Client.ALLOW_SERVER_LISTINGS)
-        .writeVarInt(Client.PARTICLE_STATUS)
-        .build(),
-    );
-  }
-
-  private sendPacket(payload: Uint8Array<ArrayBuffer>): Promise<void> {
-    return this.connection.writePacket(payload);
+  private sendPacket(packet: ClientPacket): Promise<void> {
+    return this.connection.writePacket(packet.serialize());
   }
 }

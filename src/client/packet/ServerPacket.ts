@@ -1,43 +1,48 @@
-import { VarInt } from "./VarInt.ts";
+import { Packet } from "./Packet.ts";
+import { VarInt } from "../VarInt.ts";
+import type { State } from "../State.ts";
 
 /**
- * Reads typed fields sequentially from a packet payload.
+ * Represents a S→C packet that can deserialize itself from raw bytes.
  */
-export class PacketReader {
+export abstract class ServerPacket extends Packet {
+  public static readonly STATE: State;
+
   private readonly buf: Uint8Array<ArrayBuffer>;
   private offset = 0;
 
   /**
-   * @param buf Raw packet payload.
+   * @param buf Raw packet payload, with packet ID already consumed.
    */
-  public constructor(buf: Uint8Array<ArrayBuffer>) {
+  protected constructor(buf: Uint8Array<ArrayBuffer>) {
+    super();
     this.buf = buf;
   }
 
-  public readVarInt(): number {
+  protected readVarInt(): number {
     const [value, size] = VarInt.decode(this.buf, this.offset);
     this.offset += size;
     return value;
   }
 
-  public readString(): string {
+  protected readString(): string {
     const length = this.readVarInt();
     const bytes = this.buf.subarray(this.offset, this.offset + length);
     this.offset += length;
     return new TextDecoder().decode(bytes);
   }
 
-  public readByteArray(): Uint8Array<ArrayBuffer> {
+  protected readByteArray(): Uint8Array<ArrayBuffer> {
     const length = this.readVarInt();
     const bytes = this.buf.slice(
       this.offset,
       this.offset + length,
-    ) as Uint8Array<ArrayBuffer>;
+    );
     this.offset += length;
     return bytes;
   }
 
-  public readLong(): bigint {
+  protected readLong(): bigint {
     const view = new DataView(
       this.buf.buffer,
       this.buf.byteOffset + this.offset,
@@ -47,11 +52,11 @@ export class PacketReader {
     return view.getBigInt64(0, false);
   }
 
-  public readBoolean(): boolean {
+  protected readBoolean(): boolean {
     return this.buf[this.offset++] !== 0;
   }
 
-  public readUnsignedShort(): number {
+  protected readUnsignedShort(): number {
     const view = new DataView(
       this.buf.buffer,
       this.buf.byteOffset + this.offset,
@@ -61,7 +66,7 @@ export class PacketReader {
     return view.getUint16(0, false);
   }
 
-  public readInt(): number {
+  protected readInt(): number {
     const view = new DataView(
       this.buf.buffer,
       this.buf.byteOffset + this.offset,
@@ -71,20 +76,24 @@ export class PacketReader {
     return view.getInt32(0, false);
   }
 
-  public readUuid(): string {
+  protected readUuid(): string {
     const hex = Array.from(this.buf.subarray(this.offset, this.offset + 16))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     this.offset += 16;
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${
-      hex.slice(16, 20)
-    }-${hex.slice(20)}`;
+    return [
+      hex.slice(0, 8),
+      hex.slice(8, 12),
+      hex.slice(12, 16),
+      hex.slice(16, 20),
+    ].join("-");
   }
 
-  /**
-   * Returns all remaining bytes without advancing the offset.
-   */
-  public readRemaining(): Uint8Array<ArrayBuffer> {
-    return this.buf.slice(this.offset) as Uint8Array<ArrayBuffer>;
+  protected readOptional<T>(cb: () => T): T | null {
+    return this.readBoolean() ? cb() : null;
+  }
+
+  protected readRemaining(): Uint8Array<ArrayBuffer> {
+    return this.buf.slice(this.offset);
   }
 }

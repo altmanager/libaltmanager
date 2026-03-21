@@ -9,7 +9,7 @@ export class VarInt {
    *
    * @param value The integer to encode.
    */
-  public static encode(value: number): Uint8Array {
+  public static encode(value: number): Uint8Array<ArrayBuffer> {
     const buf = new Uint8Array(VarInt.MAX_BYTES);
     let i = 0;
     do {

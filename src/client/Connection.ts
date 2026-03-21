@@ -51,7 +51,7 @@ export class Connection {
    *
    * @param sharedSecret 16-byte shared secret.
    */
-  public enableEncryption(sharedSecret: Uint8Array): void {
+  public enableEncryption(sharedSecret: Uint8Array<ArrayBuffer>): void {
     this.encryptCfb = new aesjs.ModeOfOperation.cfb(
       sharedSecret,
       sharedSecret,
@@ -75,7 +75,7 @@ export class Connection {
    * Reads the next complete packet payload (packet ID + fields).
    * Returns `null` on clean remote close.
    */
-  public async readPacket(): Promise<Uint8Array | null> {
+  public async readPacket(): Promise<Uint8Array<ArrayBuffer> | null> {
     const packetLength = await this.readVarInt();
     if (packetLength === null) return null;
 
@@ -109,7 +109,7 @@ export class Connection {
    * @param payload Packet ID VarInt followed by field bytes.
    */
   public async writePacket(payload: Uint8Array<ArrayBuffer>): Promise<void> {
-    let framed: Uint8Array;
+    let framed: Uint8Array<ArrayBuffer>;
 
     if (this.compressionThreshold < 0) {
       framed = Connection.concat(VarInt.encode(payload.length), payload);
@@ -123,7 +123,7 @@ export class Connection {
     }
 
     if (this.encryptCfb !== null) {
-      framed = this.encryptCfb.encrypt(framed);
+      framed = this.encryptCfb.encrypt(framed) as Uint8Array<ArrayBuffer>;
     }
 
     await this.writeAll(framed);
@@ -203,7 +203,7 @@ export class Connection {
     return chunk;
   }
 
-  private async writeAll(data: Uint8Array): Promise<void> {
+  private async writeAll(data: Uint8Array<ArrayBuffer>): Promise<void> {
     if (this.conn === null) throw new Error("Not connected");
 
     let offset = 0;
@@ -212,29 +212,25 @@ export class Connection {
     }
   }
 
-  private static decompress(data: Uint8Array): Uint8Array {
-    return inflateSync(data);
+  private static decompress(
+    data: Uint8Array<ArrayBuffer>,
+  ): Uint8Array<ArrayBuffer> {
+    return inflateSync(data) as Uint8Array<ArrayBuffer>;
   }
 
-  private static compress(data: Uint8Array): Uint8Array {
-    return deflateRawSync(data);
+  private static compress(
+    data: Uint8Array<ArrayBuffer>,
+  ): Uint8Array<ArrayBuffer> {
+    return deflateRawSync(data) as Uint8Array<ArrayBuffer>;
   }
 
-  private static concat(a: Uint8Array, b: Uint8Array): Uint8Array {
+  private static concat(
+    a: Uint8Array,
+    b: Uint8Array<ArrayBuffer>,
+  ): Uint8Array<ArrayBuffer> {
     const out = new Uint8Array(a.length + b.length);
     out.set(a);
     out.set(b, a.length);
-    return out;
-  }
-
-  private static concatAll(chunks: Uint8Array[]): Uint8Array {
-    const total = chunks.reduce((n, c) => n + c.length, 0);
-    const out = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      out.set(chunk, offset);
-      offset += chunk.length;
-    }
     return out;
   }
 }
