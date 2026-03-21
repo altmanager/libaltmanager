@@ -25,4 +25,4 @@ jobs:
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION#v}\"/" deno.json
 
       - name: Publish to JSR
-        run: deno publish
+        run: deno publish --allow-dirty
