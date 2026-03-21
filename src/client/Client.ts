@@ -15,6 +15,16 @@ import type { Session } from "../Session.ts";
 export class Client extends TypedEventTarget<ClientEvents> {
   private static readonly PROTOCOL_VERSION = 774;
 
+  private static readonly LOCALE = "en_GB";
+  private static readonly VIEW_DISTANCE = 2;
+  private static readonly CHAT_MODE = 0;
+  private static readonly CHAT_COLORS = true;
+  private static readonly SKIN_PARTS = 0x7f;
+  private static readonly MAIN_HAND = 1;
+  private static readonly ENABLE_TEXT_FILTERING = false;
+  private static readonly ALLOW_SERVER_LISTINGS = true;
+  private static readonly PARTICLE_STATUS = 2;
+
   private readonly session: Session;
   private readonly brand: string;
   private connection: Connection = new Connection();
@@ -115,6 +125,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
             .build(),
         );
         this.state = State.CONFIGURATION;
+        await this.sendClientInformation();
         break;
       case PacketID.SERVER_LOGIN_DISCONNECT:
         this.connection.close();
@@ -343,6 +354,23 @@ export class Client extends TypedEventTarget<ClientEvents> {
         .writeVarInt(PacketID.CLIENT_HELLO)
         .writeString(this.session.username)
         .writeUuid(this.session.uuid)
+        .build(),
+    );
+  }
+
+  private async sendClientInformation(): Promise<void> {
+    await this.sendPacket(
+      new PacketWriter()
+        .writeVarInt(PacketID.CLIENT_INFORMATION)
+        .writeString(Client.LOCALE)
+        .writeByte(Client.VIEW_DISTANCE)
+        .writeVarInt(Client.CHAT_MODE)
+        .writeBoolean(Client.CHAT_COLORS)
+        .writeByte(Client.SKIN_PARTS)
+        .writeVarInt(Client.MAIN_HAND)
+        .writeBoolean(Client.ENABLE_TEXT_FILTERING)
+        .writeBoolean(Client.ALLOW_SERVER_LISTINGS)
+        .writeVarInt(Client.PARTICLE_STATUS)
         .build(),
     );
   }

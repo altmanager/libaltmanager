@@ -62,6 +62,11 @@ export class PacketWriter {
     return this;
   }
 
+  public writeByte(value: number): this {
+    this.chunks.push(new Uint8Array([value & 0xff]) as Uint8Array<ArrayBuffer>);
+    return this;
+  }
+
   /**
    * Returns the assembled packet payload.
    */
