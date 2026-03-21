@@ -1,3 +1,4 @@
+import nbt from "prismarine-nbt";
 import { Buffer } from "node:buffer";
 import { Connection } from "./Connection.ts";
 import { State } from "./State.ts";
@@ -34,6 +35,7 @@ import { PlayResourcePackPush } from "./packet/server/PlayResourcePackPush.ts";
 import { PlayTransfer } from "./packet/server/PlayTransfer.ts";
 import { SelectKnownPacks as ServerSelectKnownPacks } from "./packet/server/SelectKnownPacks.ts";
 import { StartConfiguration } from "./packet/server/StartConfiguration.ts";
+import { SystemChat } from "./packet/server/SystemChat.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -209,6 +211,13 @@ export class Client extends TypedEventTarget<ClientEvents> {
         break;
       case PlayTransfer.ID:
         await this.handleTransfer(new PlayTransfer(buf));
+        break;
+      case SystemChat.ID:
+        const packet = new SystemChat(buf);
+        if (packet.overlay) {
+          break;
+        }
+        this.dispatchEvent("chat", packet.content);
         break;
     }
   }

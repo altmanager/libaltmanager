@@ -1,3 +1,5 @@
+import nbt, { type NBT } from "prismarine-nbt";
+import { Buffer } from "node:buffer";
 import { Packet } from "./Packet.ts";
 import { VarInt } from "../VarInt.ts";
 import type { State } from "../State.ts";
@@ -91,6 +93,13 @@ export abstract class ServerPacket extends Packet {
 
   protected readOptional<T>(cb: () => T): T | null {
     return this.readBoolean() ? cb() : null;
+  }
+
+  protected readNbt(): NBT {
+    const buffer = Buffer.from(this.buf.buffer, this.buf.byteOffset, this.buf.byteLength);
+    const { value, size } = nbt.proto.read(buffer, this.offset, "anonymousNbt");
+    this.offset += size;
+    return value as NBT;
   }
 
   protected readRemaining(): Uint8Array<ArrayBuffer> {

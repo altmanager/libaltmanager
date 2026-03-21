@@ -6,4 +6,9 @@ export interface PlayerEvents {
    * Fired when the player’s {@link import("./PlayerStatus.ts").PlayerStatus} changes.
    */
   statusChange: void;
+
+  /**
+   * Fired when the player receives a chat message.
+   */
+  chat: Record<string, unknown>;
 }
