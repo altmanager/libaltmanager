@@ -69,7 +69,11 @@ export class Player extends TypedEventTarget<PlayerEvents> {
       this.#status = PlayerStatus.CONNECTING;
       this.dispatchEvent("statusChange", void 0);
 
-      client.connect(host, port).catch(reject);
+      client.connect(host, port).catch(e => {
+        this.#status = PlayerStatus.DISCONNECTED;
+        this.dispatchEvent("statusChange", void 0);
+        reject(e);
+      });
     });
   }
 
