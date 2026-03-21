@@ -1,3 +1,5 @@
+import { constants, publicEncrypt } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { Connection } from "./Connection.ts";
 import { PacketReader } from "./PacketReader.ts";
 import { PacketWriter } from "./PacketWriter.ts";
@@ -44,7 +46,10 @@ export class Client extends TypedEventTarget<ClientEvents> {
     await this.sendHandshake(host, port);
     await this.sendLoginStart();
 
-    this.readLoop().catch(() => this.handleDisconnect());
+    this.readLoop().catch((e) => {
+      console.error(`[Client] readLoop uncaught:`, e);
+      this.handleDisconnect();
+    });
   }
 
   /**
@@ -196,28 +201,20 @@ export class Client extends TypedEventTarget<ClientEvents> {
       new Uint8Array(16) as Uint8Array<ArrayBuffer>,
     );
 
-    const importedKey = await crypto.subtle.importKey(
-      "spki",
-      publicKey,
-      { name: "RSA-OAEP", hash: "SHA-1" },
-      false,
-      ["encrypt"],
-    );
+    const { publicEncrypt, constants } = await import("node:crypto");
 
-    const encryptedSecret = new Uint8Array(
-      await crypto.subtle.encrypt(
-        { name: "RSA-OAEP" },
-        importedKey,
-        sharedSecret,
-      ),
+    const pem = `-----BEGIN PUBLIC KEY-----\n${
+      btoa(String.fromCharCode(...publicKey)).match(/.{1,64}/g)!.join("\n")
+    }\n-----END PUBLIC KEY-----`;
+
+    const encryptedSecret = publicEncrypt(
+      { key: pem, padding: constants.RSA_PKCS1_PADDING },
+      Buffer.from(sharedSecret),
     ) as Uint8Array<ArrayBuffer>;
 
-    const encryptedVerifyToken = new Uint8Array(
-      await crypto.subtle.encrypt(
-        { name: "RSA-OAEP" },
-        importedKey,
-        verifyToken,
-      ),
+    const encryptedVerifyToken = publicEncrypt(
+      { key: pem, padding: constants.RSA_PKCS1_PADDING },
+      Buffer.from(verifyToken),
     ) as Uint8Array<ArrayBuffer>;
 
     await this.joinSession(serverId, sharedSecret, publicKey);
@@ -258,7 +255,9 @@ export class Client extends TypedEventTarget<ClientEvents> {
     );
 
     if (!response.ok) {
-      throw new Error(`Session join failed: ${response.status}`);
+      throw new Error(
+        `Session join failed: ${response.status} ${await response.text()}`,
+      );
     }
   }
 

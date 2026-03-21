@@ -1,4 +1,5 @@
 import aesjs from "aes-js";
+import { deflateRawSync, inflateSync } from "node:zlib";
 import { VarInt } from "./VarInt.ts";
 
 /**
@@ -91,7 +92,8 @@ export class Connection {
       return raw.subarray(varIntSize);
     }
 
-    const decompressed = await Connection.decompress(raw.subarray(varIntSize));
+    const decompressed = Connection.decompress(raw.subarray(varIntSize));
+
     if (decompressed.length !== dataLength) {
       throw new Error(
         `Decompressed length mismatch: expected ${dataLength}, got ${decompressed.length}`,
@@ -112,7 +114,7 @@ export class Connection {
     if (this.compressionThreshold < 0) {
       framed = Connection.concat(VarInt.encode(payload.length), payload);
     } else if (payload.length >= this.compressionThreshold) {
-      const compressed = await Connection.compress(payload);
+      const compressed = Connection.compress(payload);
       const body = Connection.concat(VarInt.encode(payload.length), compressed);
       framed = Connection.concat(VarInt.encode(body.length), body);
     } else {
@@ -192,11 +194,13 @@ export class Connection {
     const { value, done } = await this.reader.read();
     if (done || value === undefined) return null;
 
+    const chunk = value.byteOffset !== 0 ? new Uint8Array(value) : value;
+
     if (this.decryptCfb !== null) {
-      return this.decryptCfb.decrypt(value);
+      return this.decryptCfb.decrypt(chunk);
     }
 
-    return value;
+    return chunk;
   }
 
   private async writeAll(data: Uint8Array): Promise<void> {
@@ -208,33 +212,12 @@ export class Connection {
     }
   }
 
-  private static async processStream(
-    stream: { writable: WritableStream; readable: ReadableStream<Uint8Array> },
-    data: Uint8Array<ArrayBuffer>,
-  ): Promise<Uint8Array> {
-    const writer = stream.writable.getWriter();
-    const reader = stream.readable.getReader();
-    await writer.write(data);
-    await writer.close();
-
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-
-    return Connection.concatAll(chunks);
+  private static decompress(data: Uint8Array): Uint8Array {
+    return inflateSync(data);
   }
 
-  private static decompress(
-    data: Uint8Array<ArrayBuffer>,
-  ): Promise<Uint8Array> {
-    return Connection.processStream(new DecompressionStream("deflate"), data);
-  }
-
-  private static compress(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
-    return Connection.processStream(new CompressionStream("deflate"), data);
+  private static compress(data: Uint8Array): Uint8Array {
+    return deflateRawSync(data);
   }
 
   private static concat(a: Uint8Array, b: Uint8Array): Uint8Array {
