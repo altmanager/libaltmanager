@@ -21,7 +21,8 @@ jobs:
 
       - name: Set version from release tag
         run: |
-          sed -i 's/"version": "[^"]*"/"version": "${{ github.event.release.tag_name }}"/' deno.json
+          VERSION="${{ github.event.release.tag_name }}"
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION#v}\"/" deno.json
 
       - name: Publish to JSR
         run: deno publish
