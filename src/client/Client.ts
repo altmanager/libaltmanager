@@ -142,7 +142,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
         await this.sendPacket(new ClientInformation());
         break;
       case LoginDisconnect.ID:
-        this.connection.close();
+        // TODO: surface kick reason
         break;
     }
   }
@@ -173,7 +173,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
         this.state = State.PLAY;
         break;
       case ConfigurationDisconnect.ID:
-        this.connection.close();
+        // TODO: surface kick reason
         break;
       case ConfigurationTransfer.ID:
         await this.handleTransfer(new ConfigurationTransfer(buf));
@@ -205,7 +205,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
         );
         break;
       case PlayDisconnect.ID:
-        this.connection.close();
+        // TODO: surface kick reason
         break;
       case PlayTransfer.ID:
         await this.handleTransfer(new PlayTransfer(buf));
