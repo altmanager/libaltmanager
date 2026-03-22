@@ -1,3 +1,4 @@
+import nbt from "prismarine-nbt";
 import type { Session } from "./Session.ts";
 import { PlayerStatus } from "./PlayerStatus.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
@@ -66,10 +67,42 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         reject(new Error("Disconnected before login"));
       }, { once: true });
 
+      client.addEventListener("chat", (message) => {
+        const simplify = (tag: nbt.Tags[nbt.TagType]): unknown => {
+          switch (tag.type) {
+            case "byte":
+              return tag.value === 1
+                ? true
+                : tag.value === 0
+                ? false
+                : tag.value;
+            case "compound":
+              return Object.fromEntries(
+                Object.entries(tag.value)
+                  .filter(([, v]) => v !== undefined)
+                  .map(([k, v]) => [k === "" ? "text" : k, simplify(v!)]),
+              );
+            case "list":
+              return tag.value.value.map((v: unknown) =>
+                simplify(
+                  {
+                    type: tag.value.type,
+                    value: v,
+                  } as nbt.Tags[nbt.TagType],
+                )
+              );
+            default:
+              return tag.value;
+          }
+        };
+
+        this.dispatchEvent("chat", simplify(message.detail));
+      });
+
       this.#status = PlayerStatus.CONNECTING;
       this.dispatchEvent("statusChange", void 0);
 
-      client.connect(host, port).catch(e => {
+      client.connect(host, port).catch((e) => {
         this.#status = PlayerStatus.DISCONNECTED;
         this.dispatchEvent("statusChange", void 0);
         this.client = null;
@@ -87,5 +120,17 @@ export class Player extends TypedEventTarget<PlayerEvents> {
     }
     this.client.disconnect();
     this.client = null;
+  }
+
+  /**
+   * Sends an unsigned chat message.
+   *
+   * @param message Message to send.
+   */
+  public async chat(message: string): Promise<void> {
+    if (this.client === null) {
+      throw new Error("Player is not connected");
+    }
+    return await this.client.chat(message);
   }
 }

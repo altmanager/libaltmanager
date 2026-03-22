@@ -74,4 +74,23 @@ export abstract class ClientPacket extends Packet {
     }
     this.chunks.push(buf);
   }
+
+  protected writeOptional<T>(value: T | null, cb: (value: T) => void): void {
+    if (value === null) {
+      this.writeBoolean(false);
+    } else {
+      this.writeBoolean(true);
+      cb(value);
+    }
+  }
+
+  protected writeFixedBitSet(bits: bigint, n: number): void {
+    const buf = new Uint8Array(Math.ceil(n / 8));
+    for (let i = 0; i < n; i++) {
+      if (((bits >> BigInt(i)) & 1n) !== 0n) {
+        buf[Math.floor(i / 8)] |= 1 << (i % 8);
+      }
+    }
+    this.chunks.push(buf);
+  }
 }
