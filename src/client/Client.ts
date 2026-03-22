@@ -164,6 +164,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
   ): Promise<void> {
     switch (packetId) {
       case ServerConfigurationKeepAlive.ID:
+        this.lastKeepAliveMs = Date.now();
         await this.sendPacket(
           new ClientConfigurationKeepAlive(
             new ServerConfigurationKeepAlive(buf).id,
