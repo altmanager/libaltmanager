@@ -110,6 +110,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
   }
 
   private handleDisconnect(): void {
+    this.stopKeepAliveWatchdog();
     this.connection.close();
     this.dispatchEvent("disconnect", void 0);
   }
@@ -196,7 +197,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
   ): Promise<void> {
     switch (packetId) {
       case Login.ID:
-        this.stopKeepAliveWatchdog();
+        this.startKeepAliveWatchdog();
         this.dispatchEvent("login", void 0);
         break;
       case ServerPlayKeepAlive.ID:
