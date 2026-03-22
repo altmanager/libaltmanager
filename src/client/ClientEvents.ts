@@ -1,4 +1,4 @@
-import { NBT } from "prismarine-nbt";
+import type { NBT } from "prismarine-nbt";
 
 /**
  * Defines the events emitted by a {@link import("./Client.ts").Client}.
