@@ -98,15 +98,17 @@ export class Client extends TypedEventTarget<ClientEvents> {
    * @param message Message to send.
    */
   public async chat(message: string): Promise<void> {
-    await this.sendPacket(new Chat(
-      message.slice(0, 256),
-      BigInt(Date.now()),
-      crypto.getRandomValues(new BigInt64Array(1))[0],
-      null,
-      0,
-      0b00000000000000000000n,
-      1
-    ));
+    await this.sendPacket(
+      new Chat(
+        message.slice(0, 256),
+        BigInt(Date.now()),
+        crypto.getRandomValues(new BigInt64Array(1))[0],
+        null,
+        0,
+        0b00000000000000000000n,
+        1,
+      ),
+    );
     if (message.length > 256) {
       await this.chat(message.slice(256));
     }

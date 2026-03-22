@@ -88,7 +88,7 @@ export abstract class ClientPacket extends Packet {
     const buf = new Uint8Array(Math.ceil(n / 8));
     for (let i = 0; i < n; i++) {
       if (((bits >> BigInt(i)) & 1n) !== 0n) {
-        buf[Math.floor(i / 8)] |= (1 << (i % 8));
+        buf[Math.floor(i / 8)] |= 1 << (i % 8);
       }
     }
     this.chunks.push(buf);
