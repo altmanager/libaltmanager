@@ -1,6 +1,6 @@
+import type { NBT } from "prismarine-nbt";
 import { ServerPacket } from "../ServerPacket.ts";
 import { State } from "../../State.ts";
-import type { NBT } from "prismarine-nbt";
 
 export class SystemChat extends ServerPacket {
   public static override readonly ID = 0x77;
