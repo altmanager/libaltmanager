@@ -275,7 +275,16 @@ export class Client extends TypedEventTarget<ClientEvents> {
   ): Promise<void> {
     this.transferring = true;
     this.connection.close();
-    await this.connect(packet.host, packet.port);
+    try {
+      await this.connect(packet.host, packet.port);
+    } catch (e) {
+      console.error(
+        `[Client] Failed to transfer to ${packet.host}:${packet.port}:`,
+        e,
+      );
+      this.transferring = false;
+      this.handleDisconnect();
+    }
   }
 
   private async joinSession(
