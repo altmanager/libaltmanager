@@ -10,5 +10,5 @@ export interface PlayerEvents {
   /**
    * Fired when the player receives a chat message.
    */
-  chat: Record<string, unknown>;
+  chat: unknown;
 }

@@ -1,4 +1,3 @@
-import nbt from "prismarine-nbt";
 import { Buffer } from "node:buffer";
 import { Connection } from "./Connection.ts";
 import { State } from "./State.ts";
@@ -226,13 +225,14 @@ export class Client extends TypedEventTarget<ClientEvents> {
       case PlayTransfer.ID:
         await this.handleTransfer(new PlayTransfer(buf));
         break;
-      case SystemChat.ID:
+      case SystemChat.ID: {
         const packet = new SystemChat(buf);
         if (packet.overlay) {
           break;
         }
         this.dispatchEvent("chat", packet.content);
         break;
+      }
     }
   }
 

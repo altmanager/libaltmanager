@@ -96,7 +96,11 @@ export abstract class ServerPacket extends Packet {
   }
 
   protected readNbt(): NBT {
-    const buffer = Buffer.from(this.buf.buffer, this.buf.byteOffset, this.buf.byteLength);
+    const buffer = Buffer.from(
+      this.buf.buffer,
+      this.buf.byteOffset,
+      this.buf.byteLength,
+    );
     const { value, size } = nbt.proto.read(buffer, this.offset, "anonymousNbt");
     this.offset += size;
     return value as NBT;
