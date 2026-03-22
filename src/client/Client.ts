@@ -1,3 +1,4 @@
+import nbt from "prismarine-nbt";
 import { Buffer } from "node:buffer";
 import { Connection } from "./Connection.ts";
 import { State } from "./State.ts";
@@ -36,6 +37,10 @@ import { SelectKnownPacks as ServerSelectKnownPacks } from "./packet/server/Sele
 import { StartConfiguration } from "./packet/server/StartConfiguration.ts";
 import { SystemChat } from "./packet/server/SystemChat.ts";
 import { Chat } from "./packet/client/Chat.ts";
+import { RegistryData } from "./packet/server/RegistryData.ts";
+import { RegistryManager } from "./registry/RegistryManager.ts";
+import { RegistryId } from "./registry/RegistryId.ts";
+import { Registry } from "./registry/Registry.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -50,6 +55,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
   private transferring = false;
   private keepAliveWatchdog: ReturnType<typeof setInterval> | null = null;
   private lastKeepAliveMs: number = 0;
+  private readonly registries = new RegistryManager();
 
   /**
    * @param session Session to authenticate with.
@@ -214,6 +220,36 @@ export class Client extends TypedEventTarget<ClientEvents> {
       case ConfigurationTransfer.ID:
         await this.handleTransfer(new ConfigurationTransfer(buf));
         break;
+      case RegistryData.ID: {
+        const packet = new RegistryData(buf);
+        const data = packet.entries.map(({ id, data }) => ({
+          id,
+          data: data === null ? null : nbt.simplify(data),
+        }));
+        switch (packet.registryId) {
+          case RegistryId.CHAT_TYPE:
+            this.registries.set(
+              RegistryId.CHAT_TYPE,
+              new Registry(data.map((entry) => ({
+                id: entry.id,
+                value: {
+                  chat: {
+                    translationKey: entry.data.chat.translation_key,
+                    parameters: entry.data.chat.parameters,
+                    style: entry.data.chat.style,
+                  },
+                  narration: {
+                    translationKey: entry.data.narration.translation_key,
+                    parameters: entry.data.narration.parameters,
+                    style: entry.data.narration.style,
+                  },
+                },
+              }))),
+            );
+            break;
+        }
+        break;
+      }
     }
   }
 
