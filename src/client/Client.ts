@@ -92,7 +92,11 @@ export class Client extends TypedEventTarget<ClientEvents> {
         if (payload === null) {
           break;
         }
-        await this.handlePacket(payload);
+        try {
+          await this.handlePacket(payload);
+        } catch (e) {
+          console.error("[Client] Error handling packet, ignoring:", e);
+        }
       }
     } finally {
       if (!this.transferring) {
