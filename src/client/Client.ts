@@ -39,11 +39,15 @@ import { StartConfiguration } from "./packet/server/StartConfiguration.ts";
  * Manages the Minecraft Java Edition protocol state machine.
  */
 export class Client extends TypedEventTarget<ClientEvents> {
+  private static readonly KEEPALIVE_TIMEOUT_MS = 30_000;
+
   private readonly session: Session;
   private readonly brand: string;
   private connection: Connection = new Connection();
   private state: State = State.LOGIN;
   private transferring = false;
+  private keepAliveWatchdog: ReturnType<typeof setInterval> | null = null;
+  private lastKeepAliveMs: number = 0;
 
   /**
    * @param session Session to authenticate with.
@@ -141,6 +145,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
         );
         break;
       case LoginFinished.ID:
+        this.startKeepAliveWatchdog();
         await this.sendPacket(new LoginAcknowledged());
         this.state = State.CONFIGURATION;
         await this.sendPacket(new ClientInformation());
@@ -191,9 +196,11 @@ export class Client extends TypedEventTarget<ClientEvents> {
   ): Promise<void> {
     switch (packetId) {
       case Login.ID:
+        this.stopKeepAliveWatchdog();
         this.dispatchEvent("login", void 0);
         break;
       case ServerPlayKeepAlive.ID:
+        this.lastKeepAliveMs = Date.now();
         await this.sendPacket(
           new ClientPlayKeepAlive(new ServerPlayKeepAlive(buf).id),
         );
@@ -326,5 +333,22 @@ export class Client extends TypedEventTarget<ClientEvents> {
 
   private sendPacket(packet: ClientPacket): Promise<void> {
     return this.connection.writePacket(packet.serialize());
+  }
+
+  private startKeepAliveWatchdog(): void {
+    this.stopKeepAliveWatchdog();
+    this.lastKeepAliveMs = Date.now();
+    this.keepAliveWatchdog = setInterval(() => {
+      if (Date.now() - this.lastKeepAliveMs > Client.KEEPALIVE_TIMEOUT_MS) {
+        this.connection.close();
+      }
+    }, Client.KEEPALIVE_TIMEOUT_MS);
+  }
+
+  private stopKeepAliveWatchdog(): void {
+    if (this.keepAliveWatchdog !== null) {
+      clearInterval(this.keepAliveWatchdog);
+      this.keepAliveWatchdog = null;
+    }
   }
 }
