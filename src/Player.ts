@@ -121,4 +121,16 @@ export class Player extends TypedEventTarget<PlayerEvents> {
     this.client.disconnect();
     this.client = null;
   }
+
+  /**
+   * Sends an unsigned chat message.
+   *
+   * @param message Message to send.
+   */
+  public async chat(message: string): Promise<void> {
+    if (this.client === null) {
+      throw new Error("Player is not connected");
+    }
+    return await this.client.chat(message);
+  }
 }

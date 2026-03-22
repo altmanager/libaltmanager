@@ -35,6 +35,7 @@ import { PlayTransfer } from "./packet/server/PlayTransfer.ts";
 import { SelectKnownPacks as ServerSelectKnownPacks } from "./packet/server/SelectKnownPacks.ts";
 import { StartConfiguration } from "./packet/server/StartConfiguration.ts";
 import { SystemChat } from "./packet/server/SystemChat.ts";
+import { Chat } from "./packet/client/Chat.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -89,6 +90,26 @@ export class Client extends TypedEventTarget<ClientEvents> {
    */
   public disconnect(): void {
     this.connection.close();
+  }
+
+  /**
+   * Sends an unsigned chat message.
+   *
+   * @param message Message to send.
+   */
+  public async chat(message: string): Promise<void> {
+    await this.sendPacket(new Chat(
+      message.slice(0, 256),
+      BigInt(Date.now()),
+      crypto.getRandomValues(new BigInt64Array(1))[0],
+      null,
+      0,
+      0b00000000000000000000n,
+      1
+    ));
+    if (message.length > 256) {
+      await this.chat(message.slice(256));
+    }
   }
 
   private async readLoop(): Promise<void> {
