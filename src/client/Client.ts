@@ -66,6 +66,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
    * @param port TCP port.
    */
   public async connect(host: string, port: number): Promise<void> {
+    this.stopKeepAliveWatchdog();
     this.connection = new Connection();
     this.state = State.LOGIN;
     this.transferring = false;
