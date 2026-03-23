@@ -370,17 +370,15 @@ export class Client extends TypedEventTarget<ClientEvents> {
   }
 
   private handleDisguisedChat(packet: DisguisedChat): void {
-    const simplified = typeof packet.chatType !== "number"
-      ? nbt.simplify(packet.chatType)
-      : null;
     const chatType: ChatType = typeof packet.chatType === "number"
       ? this.registries.get(RegistryId.CHAT_TYPE)!.getByIndex(packet.chatType)!
-      : Client.parseChatType(simplified);
-    const decoration = chatType.chat;
+      : Client.parseChatType(nbt.simplify(packet.chatType));
+
     const toCompound = (tag: Tags[TagType]): Compound =>
-      tag.type === "compound" ? tag as Compound : nbt.comp({
+      tag.type === "compound" ? tag : nbt.comp({
         text: nbt.string(tag.value as string),
       }) as unknown as Compound;
+
     const paramMap: Record<string, Compound> = {
       sender: toCompound(packet.senderName),
       content: toCompound(packet.message),
@@ -388,14 +386,15 @@ export class Client extends TypedEventTarget<ClientEvents> {
         ? { target: toCompound(packet.targetName) }
         : {}),
     };
+
     const component = nbt.comp({
-      translate: nbt.string(decoration.translationKey),
+      translate: nbt.string(chatType.chat.translationKey),
       with: nbt.list({
-        type: "compound" as const,
-        value: decoration.parameters.map((p) => paramMap[p].value),
+        type: "compound",
+        value: chatType.chat.parameters.map((p) => paramMap[p].value),
       }),
       ...Object.fromEntries(
-        Object.entries(decoration.style ?? {}).map(([k, v]) => [
+        Object.entries(chatType.chat.style ?? {}).map(([k, v]) => [
           k,
           typeof v === "string"
             ? nbt.string(v)
@@ -404,8 +403,9 @@ export class Client extends TypedEventTarget<ClientEvents> {
             : nbt.byte(v ? 1 : 0),
         ]),
       ),
-    }, "");
-    this.dispatchEvent("chat", component as unknown as NBT);
+    }, "") as unknown as NBT;
+
+    this.dispatchEvent("chat", component);
   }
 
   private async joinSession(
