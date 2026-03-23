@@ -1,4 +1,5 @@
-import nbt, { NBT, type Tags, TagType, Compound } from "prismarine-nbt";
+import type { Compound, NBT, Tags, TagType } from "prismarine-nbt";
+import nbt from "prismarine-nbt";
 import { Buffer } from "node:buffer";
 import { Connection } from "./Connection.ts";
 import { State } from "./State.ts";
@@ -43,8 +44,6 @@ import { RegistryId } from "./registry/RegistryId.ts";
 import { Registry } from "./registry/Registry.ts";
 import { ChatType } from "./registry/ChatType.ts";
 import { DisguisedChat } from "./packet/server/DisguisedChat.ts";
-import { Transfer } from "./packet/server/Transfer.ts";
-import { ResourcePackPush } from "./packet/server/ResourcePackPush.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -386,13 +385,15 @@ export class Client extends TypedEventTarget<ClientEvents> {
       };
     const decoration = chatType.chat;
     const toCompound = (tag: Tags[TagType]): Compound =>
-      tag.type === "compound"
-        ? tag as Compound
-        : nbt.comp({ text: nbt.string(tag.value as string) }) as unknown as Compound;
+      tag.type === "compound" ? tag as Compound : nbt.comp({
+        text: nbt.string(tag.value as string),
+      }) as unknown as Compound;
     const paramMap: Record<string, Compound> = {
       sender: toCompound(packet.senderName),
       content: toCompound(packet.message),
-      ...(packet.targetName !== null ? { target: toCompound(packet.targetName) } : {}),
+      ...(packet.targetName !== null
+        ? { target: toCompound(packet.targetName) }
+        : {}),
     };
     const component = nbt.comp({
       translate: nbt.string(decoration.translationKey),
@@ -406,8 +407,8 @@ export class Client extends TypedEventTarget<ClientEvents> {
           typeof v === "string"
             ? nbt.string(v)
             : typeof v === "number"
-              ? nbt.int(v)
-              : nbt.byte(v ? 1 : 0),
+            ? nbt.int(v)
+            : nbt.byte(v ? 1 : 0),
         ]),
       ),
     }, "");
