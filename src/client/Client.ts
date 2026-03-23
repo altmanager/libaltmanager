@@ -1,3 +1,5 @@
+import type { Compound, NBT, Tags, TagType } from "prismarine-nbt";
+import nbt from "prismarine-nbt";
 import { Buffer } from "node:buffer";
 import { Connection } from "./Connection.ts";
 import { State } from "./State.ts";
@@ -36,6 +38,12 @@ import { SelectKnownPacks as ServerSelectKnownPacks } from "./packet/server/Sele
 import { StartConfiguration } from "./packet/server/StartConfiguration.ts";
 import { SystemChat } from "./packet/server/SystemChat.ts";
 import { Chat } from "./packet/client/Chat.ts";
+import { RegistryData } from "./packet/server/RegistryData.ts";
+import { RegistryManager } from "./registry/RegistryManager.ts";
+import { RegistryId } from "./registry/RegistryId.ts";
+import { Registry } from "./registry/Registry.ts";
+import { ChatType } from "./registry/ChatType.ts";
+import { DisguisedChat } from "./packet/server/DisguisedChat.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -50,6 +58,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
   private transferring = false;
   private keepAliveWatchdog: ReturnType<typeof setInterval> | null = null;
   private lastKeepAliveMs: number = 0;
+  private readonly registries = new RegistryManager();
 
   /**
    * @param session Session to authenticate with.
@@ -59,6 +68,21 @@ export class Client extends TypedEventTarget<ClientEvents> {
     super();
     this.session = session;
     this.brand = brand;
+  }
+
+  private static parseChatType(entry: any): ChatType {
+    return {
+      chat: {
+        translationKey: entry.chat.translation_key,
+        parameters: entry.chat.parameters,
+        style: entry.chat.style,
+      },
+      narration: {
+        translationKey: entry.narration.translation_key,
+        parameters: entry.narration.parameters,
+        style: entry.narration.style,
+      },
+    };
   }
 
   /**
@@ -214,6 +238,25 @@ export class Client extends TypedEventTarget<ClientEvents> {
       case ConfigurationTransfer.ID:
         await this.handleTransfer(new ConfigurationTransfer(buf));
         break;
+      case RegistryData.ID: {
+        const packet = new RegistryData(buf);
+        const data = packet.entries.map(({ id, data }) => ({
+          id,
+          data: data === null ? null : nbt.simplify(data),
+        }));
+        switch (packet.registryId) {
+          case RegistryId.CHAT_TYPE:
+            this.registries.set(
+              RegistryId.CHAT_TYPE,
+              new Registry(data.map((entry) => ({
+                id: entry.id,
+                value: Client.parseChatType(entry.data),
+              }))),
+            );
+            break;
+        }
+        break;
+      }
     }
   }
 
@@ -254,6 +297,10 @@ export class Client extends TypedEventTarget<ClientEvents> {
           break;
         }
         this.dispatchEvent("chat", packet.content);
+        break;
+      }
+      case DisguisedChat.ID: {
+        this.handleDisguisedChat(new DisguisedChat(buf));
         break;
       }
     }
@@ -320,6 +367,45 @@ export class Client extends TypedEventTarget<ClientEvents> {
       this.transferring = false;
       this.handleDisconnect();
     }
+  }
+
+  private handleDisguisedChat(packet: DisguisedChat): void {
+    const chatType: ChatType = typeof packet.chatType === "number"
+      ? this.registries.get(RegistryId.CHAT_TYPE)!.getByIndex(packet.chatType)!
+      : Client.parseChatType(nbt.simplify(packet.chatType));
+
+    const toCompound = (tag: Tags[TagType]): Compound =>
+      tag.type === "compound" ? tag : nbt.comp({
+        text: nbt.string(tag.value as string),
+      }) as unknown as Compound;
+
+    const paramMap: Record<string, Compound> = {
+      sender: toCompound(packet.senderName),
+      content: toCompound(packet.message),
+      ...(packet.targetName !== null
+        ? { target: toCompound(packet.targetName) }
+        : {}),
+    };
+
+    const component = nbt.comp({
+      translate: nbt.string(chatType.chat.translationKey),
+      with: nbt.list({
+        type: "compound",
+        value: chatType.chat.parameters.map((p) => paramMap[p].value),
+      }),
+      ...Object.fromEntries(
+        Object.entries(chatType.chat.style ?? {}).map(([k, v]) => [
+          k,
+          typeof v === "string"
+            ? nbt.string(v)
+            : typeof v === "number"
+            ? nbt.int(v)
+            : nbt.byte(v ? 1 : 0),
+        ]),
+      ),
+    }, "") as unknown as NBT;
+
+    this.dispatchEvent("chat", component);
   }
 
   private async joinSession(

@@ -106,6 +106,21 @@ export abstract class ServerPacket extends Packet {
     return value as NBT;
   }
 
+  protected readPrefixedArray<T>(cb: () => T): T[] {
+    const length = this.readVarInt();
+    const array: T[] = [];
+    for (let i = 0; i < length; i++) {
+      array.push(cb());
+    }
+    return array;
+  }
+
+  protected readIdOr<T>(readInline: () => T): T | number {
+    const id = this.readVarInt();
+    if (id === 0) return readInline();
+    return id - 1;
+  }
+
   protected readRemaining(): Uint8Array<ArrayBuffer> {
     return this.buf.slice(this.offset);
   }
