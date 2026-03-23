@@ -1,15 +1,11 @@
 export class Registry<T> {
-  private readonly identifiers: Record<string, number>;
-  public readonly entries: { id: string; value: T }[];
+  private readonly identifiers: Map<string, number>;
+  public readonly entries: ReadonlyArray<{ id: string; value: T }>;
 
   public constructor(entries: { id: string; value: T }[]) {
-    this.entries = entries;
-    this.identifiers = entries.reduce<Record<string, number>>(
-      (acc, entry, index) => {
-        acc[entry.id] = index;
-        return acc;
-      },
-      {},
+    this.entries = Array.from(entries);
+    this.identifiers = new Map(
+      entries.map((entry, index) => [entry.id, index]),
     );
   }
 
@@ -18,6 +14,10 @@ export class Registry<T> {
   }
 
   public getById(id: string): T | undefined {
-    return this.entries[this.identifiers[id]]?.value;
+    const index = this.identifiers.get(id);
+    if (index === undefined) {
+      return undefined;
+    }
+    return this.getByIndex(index);
   }
 }
