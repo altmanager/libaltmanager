@@ -70,6 +70,21 @@ export class Client extends TypedEventTarget<ClientEvents> {
     this.brand = brand;
   }
 
+  private static parseChatType(entry: any): ChatType {
+    return {
+      chat: {
+        translationKey: entry.chat.translation_key,
+        parameters: entry.chat.parameters,
+        style: entry.chat.style,
+      },
+      narration: {
+        translationKey: entry.narration.translation_key,
+        parameters: entry.narration.parameters,
+        style: entry.narration.style,
+      },
+    };
+  }
+
   /**
    * Connects to a Minecraft server and begins the protocol handshake.
    *
@@ -235,18 +250,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
               RegistryId.CHAT_TYPE,
               new Registry(data.map((entry) => ({
                 id: entry.id,
-                value: {
-                  chat: {
-                    translationKey: entry.data.chat.translation_key,
-                    parameters: entry.data.chat.parameters,
-                    style: entry.data.chat.style,
-                  },
-                  narration: {
-                    translationKey: entry.data.narration.translation_key,
-                    parameters: entry.data.narration.parameters,
-                    style: entry.data.narration.style,
-                  },
-                },
+                value: Client.parseChatType(entry.data),
               }))),
             );
             break;
@@ -371,18 +375,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
       : null;
     const chatType: ChatType = typeof packet.chatType === "number"
       ? this.registries.get(RegistryId.CHAT_TYPE)!.getByIndex(packet.chatType)!
-      : {
-        chat: {
-          translationKey: simplified.chat.translation_key,
-          parameters: simplified.chat.parameters,
-          style: simplified.chat.style,
-        },
-        narration: {
-          translationKey: simplified.narration.translation_key,
-          parameters: simplified.narration.parameters,
-          style: simplified.narration.style,
-        },
-      };
+      : Client.parseChatType(simplified);
     const decoration = chatType.chat;
     const toCompound = (tag: Tags[TagType]): Compound =>
       tag.type === "compound" ? tag as Compound : nbt.comp({
