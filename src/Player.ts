@@ -26,6 +26,32 @@ export class Player extends TypedEventTarget<PlayerEvents> {
     this.#session = session;
   }
 
+  private static simplifyComponent(tag: nbt.Tags[nbt.TagType]): unknown {
+    switch (tag.type) {
+      case "byte":
+        return tag.value === 1 ? true : tag.value === 0 ? false : tag.value;
+      case "compound":
+        return Object.fromEntries(
+          Object.entries(tag.value)
+            .filter(([, v]) => v !== undefined)
+            .map((
+              [k, v],
+            ) => [k === "" ? "text" : k, this.simplifyComponent(v!)]),
+        );
+      case "list":
+        return tag.value.value.map((v: unknown) =>
+          this.simplifyComponent(
+            {
+              type: tag.value.type,
+              value: v,
+            } as nbt.Tags[nbt.TagType],
+          )
+        );
+      default:
+        return tag.value;
+    }
+  }
+
   /**
    * Current connection status of the player.
    */
@@ -68,35 +94,16 @@ export class Player extends TypedEventTarget<PlayerEvents> {
       }, { once: true });
 
       client.addEventListener("chat", (message) => {
-        const simplify = (tag: nbt.Tags[nbt.TagType]): unknown => {
-          switch (tag.type) {
-            case "byte":
-              return tag.value === 1
-                ? true
-                : tag.value === 0
-                ? false
-                : tag.value;
-            case "compound":
-              return Object.fromEntries(
-                Object.entries(tag.value)
-                  .filter(([, v]) => v !== undefined)
-                  .map(([k, v]) => [k === "" ? "text" : k, simplify(v!)]),
-              );
-            case "list":
-              return tag.value.value.map((v: unknown) =>
-                simplify(
-                  {
-                    type: tag.value.type,
-                    value: v,
-                  } as nbt.Tags[nbt.TagType],
-                )
-              );
-            default:
-              return tag.value;
-          }
-        };
+        this.dispatchEvent("chat", Player.simplifyComponent(message.detail));
+      });
 
-        this.dispatchEvent("chat", simplify(message.detail));
+      client.addEventListener("kick", (reason) => {
+        this.dispatchEvent(
+          "kick",
+          typeof reason.detail === "string"
+            ? JSON.parse(reason.detail)
+            : Player.simplifyComponent(reason.detail),
+        );
       });
 
       this.#status = PlayerStatus.CONNECTING;
