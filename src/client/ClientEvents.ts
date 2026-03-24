@@ -7,4 +7,5 @@ export interface ClientEvents {
   login: void;
   disconnect: void;
   chat: NBT;
+  kick: string | NBT;
 }

@@ -11,4 +11,9 @@ export interface PlayerEvents {
    * Fired when the player receives a chat message.
    */
   chat: unknown;
+
+  /**
+   * Fired when the player is kicked from the server.
+   */
+  kick: unknown;
 }
