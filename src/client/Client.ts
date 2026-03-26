@@ -8,31 +8,12 @@ import type { ClientEvents } from "./ClientEvents.ts";
 import type { Session } from "../Session.ts";
 import type { ClientPacket } from "./packet/ClientPacket.ts";
 import { VarInt } from "./VarInt.ts";
-import { ConfigurationDisconnect } from "./packet/server/ConfigurationDisconnect.ts";
-import { ConfigurationKeepAlive as ServerConfigurationKeepAlive } from "./packet/server/ConfigurationKeepAlive.ts";
-import { ConfigurationResourcePackPush } from "./packet/server/ConfigurationResourcePackPush.ts";
-import { ConfigurationTransfer } from "./packet/server/ConfigurationTransfer.ts";
-import { FinishConfiguration as ServerFinishConfiguration } from "./packet/server/FinishConfiguration.ts";
-import { Hello as ServerHello } from "./packet/server/Hello.ts";
-import { Login } from "./packet/server/Login.ts";
-import { LoginCompression } from "./packet/server/LoginCompression.ts";
-import { LoginDisconnect } from "./packet/server/LoginDisconnect.ts";
-import { LoginFinished } from "./packet/server/LoginFinished.ts";
-import { PlayDisconnect } from "./packet/server/PlayDisconnect.ts";
-import { PlayKeepAlive as ServerPlayKeepAlive } from "./packet/server/PlayKeepAlive.ts";
-import { PlayResourcePackPush } from "./packet/server/PlayResourcePackPush.ts";
-import { PlayTransfer } from "./packet/server/PlayTransfer.ts";
-import { SelectKnownPacks as ServerSelectKnownPacks } from "./packet/server/SelectKnownPacks.ts";
-import { StartConfiguration } from "./packet/server/StartConfiguration.ts";
-import { SystemChat } from "./packet/server/SystemChat.ts";
-import { RegistryData } from "./packet/server/RegistryData.ts";
-import * as Serverbound from "./packet/client/mod.ts";
 import { RegistryManager } from "./registry/RegistryManager.ts";
 import { RegistryId } from "./registry/RegistryId.ts";
-import { Registry } from "./registry/Registry.ts";
 import type { ChatType } from "./registry/ChatType.ts";
-import { DisguisedChat } from "./packet/server/DisguisedChat.ts";
 import { IndexedRegistry } from "./registry/IndexedRegistry.ts";
+import * as Serverbound from "./packet/client/mod.ts";
+import * as Clientbound from "./packet/server/mod.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -185,22 +166,22 @@ export class Client extends TypedEventTarget<ClientEvents> {
     buf: Uint8Array<ArrayBuffer>,
   ): Promise<void> {
     switch (packetId) {
-      case ServerHello.ID:
-        await this.handleHello(new ServerHello(buf));
+      case Clientbound.Hello.ID:
+        await this.handleHello(new Clientbound.Hello(buf));
         break;
-      case LoginCompression.ID:
+      case Clientbound.LoginCompression.ID:
         this.connection.setCompressionThreshold(
-          new LoginCompression(buf).threshold,
+          new Clientbound.LoginCompression(buf).threshold,
         );
         break;
-      case LoginFinished.ID:
+      case Clientbound.LoginFinished.ID:
         this.startKeepAliveWatchdog();
         await this.sendPacket(new Serverbound.LoginAcknowledged());
         this.state = State.CONFIGURATION;
         await this.sendPacket(new Serverbound.ClientInformation());
         break;
-      case LoginDisconnect.ID:
-        this.dispatchEvent("kick", new LoginDisconnect(buf).reason);
+      case Clientbound.LoginDisconnect.ID:
+        this.dispatchEvent("kick", new Clientbound.LoginDisconnect(buf).reason);
         break;
     }
   }
@@ -210,37 +191,40 @@ export class Client extends TypedEventTarget<ClientEvents> {
     buf: Uint8Array<ArrayBuffer>,
   ): Promise<void> {
     switch (packetId) {
-      case ServerConfigurationKeepAlive.ID:
+      case Clientbound.ConfigurationKeepAlive.ID:
         this.lastKeepAliveMs = Date.now();
         await this.sendPacket(
           new Serverbound.ConfigurationKeepAlive(
-            new ServerConfigurationKeepAlive(buf).id,
+            new Clientbound.ConfigurationKeepAlive(buf).id,
           ),
         );
         break;
-      case ConfigurationResourcePackPush.ID:
+      case Clientbound.ConfigurationResourcePackPush.ID:
         await this.sendPacket(
           new Serverbound.ConfigurationResourcePack(
-            new ConfigurationResourcePackPush(buf).uuid,
+            new Clientbound.ConfigurationResourcePackPush(buf).uuid,
             0,
           ),
         );
         break;
-      case ServerSelectKnownPacks.ID:
+      case Clientbound.SelectKnownPacks.ID:
         await this.sendPacket(new Serverbound.SelectKnownPacks());
         break;
-      case ServerFinishConfiguration.ID:
+      case Clientbound.FinishConfiguration.ID:
         await this.sendPacket(new Serverbound.FinishConfiguration());
         this.state = State.PLAY;
         break;
-      case ConfigurationDisconnect.ID:
-        this.dispatchEvent("kick", new ConfigurationDisconnect(buf).reason);
+      case Clientbound.ConfigurationDisconnect.ID:
+        this.dispatchEvent(
+          "kick",
+          new Clientbound.ConfigurationDisconnect(buf).reason,
+        );
         break;
-      case ConfigurationTransfer.ID:
-        await this.handleTransfer(new ConfigurationTransfer(buf));
+      case Clientbound.ConfigurationTransfer.ID:
+        await this.handleTransfer(new Clientbound.ConfigurationTransfer(buf));
         break;
-      case RegistryData.ID: {
-        const packet = new RegistryData(buf);
+      case Clientbound.RegistryData.ID: {
+        const packet = new Clientbound.RegistryData(buf);
         const data = packet.entries.map(({ id, data }) => ({
           id,
           data: data === null ? null : nbt.simplify(data),
@@ -266,50 +250,50 @@ export class Client extends TypedEventTarget<ClientEvents> {
     buf: Uint8Array<ArrayBuffer>,
   ): Promise<void> {
     switch (packetId) {
-      case Login.ID:
+      case Clientbound.Login.ID:
         this.startKeepAliveWatchdog();
         this.dispatchEvent("login", void 0);
         break;
-      case ServerPlayKeepAlive.ID:
+      case Clientbound.PlayKeepAlive.ID:
         this.lastKeepAliveMs = Date.now();
         await this.sendPacket(
-          new Serverbound.PlayKeepAlive(new ServerPlayKeepAlive(buf).id),
+          new Serverbound.PlayKeepAlive(new Clientbound.PlayKeepAlive(buf).id),
         );
         break;
-      case StartConfiguration.ID:
+      case Clientbound.StartConfiguration.ID:
         await this.sendPacket(new Serverbound.ConfigurationAcknowledged());
         this.state = State.CONFIGURATION;
         break;
-      case PlayResourcePackPush.ID:
+      case Clientbound.PlayResourcePackPush.ID:
         await this.sendPacket(
           new Serverbound.PlayResourcePack(
-            new PlayResourcePackPush(buf).uuid,
+            new Clientbound.PlayResourcePackPush(buf).uuid,
             0,
           ),
         );
         break;
-      case PlayDisconnect.ID:
-        this.dispatchEvent("kick", new PlayDisconnect(buf).reason);
+      case Clientbound.PlayDisconnect.ID:
+        this.dispatchEvent("kick", new Clientbound.PlayDisconnect(buf).reason);
         break;
-      case PlayTransfer.ID:
-        await this.handleTransfer(new PlayTransfer(buf));
+      case Clientbound.PlayTransfer.ID:
+        await this.handleTransfer(new Clientbound.PlayTransfer(buf));
         break;
-      case SystemChat.ID: {
-        const packet = new SystemChat(buf);
+      case Clientbound.SystemChat.ID: {
+        const packet = new Clientbound.SystemChat(buf);
         if (packet.overlay) {
           break;
         }
         this.dispatchEvent("chat", packet.content);
         break;
       }
-      case DisguisedChat.ID: {
-        this.handleDisguisedChat(new DisguisedChat(buf));
+      case Clientbound.DisguisedChat.ID: {
+        this.handleDisguisedChat(new Clientbound.DisguisedChat(buf));
         break;
       }
     }
   }
 
-  private async handleHello(packet: ServerHello): Promise<void> {
+  private async handleHello(packet: Clientbound.Hello): Promise<void> {
     const sharedSecret = crypto.getRandomValues(
       new Uint8Array(16),
     );
@@ -343,7 +327,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
   }
 
   private async handleTransfer(
-    packet: ConfigurationTransfer | PlayTransfer,
+    packet: Clientbound.Transfer,
   ): Promise<void> {
     this.transferring = true;
     this.connection.close();
@@ -359,7 +343,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
     }
   }
 
-  private handleDisguisedChat(packet: DisguisedChat): void {
+  private handleDisguisedChat(packet: Clientbound.DisguisedChat): void {
     const chatType: ChatType = typeof packet.chatType === "number"
       ? this.registries.get(RegistryId.CHAT_TYPE)!.getByIndex(packet.chatType)!
       : Client.parseChatType(nbt.simplify(packet.chatType));
