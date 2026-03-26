@@ -10,7 +10,6 @@ import { Client } from "./client/Client.ts";
  */
 export class Player extends TypedEventTarget<PlayerEvents> {
   private static readonly DEFAULT_PORT = 25565;
-  private static readonly CLIENT_BRAND = "vanilla";
 
   readonly #session: Session;
   private client: Client | null = null;
@@ -77,7 +76,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         ? Player.DEFAULT_PORT
         : Number.parseInt(address.substring(portDelim + 1));
 
-      const client = new Client(this.#session, Player.CLIENT_BRAND);
+      const client = new Client(this.#session);
       this.client = client;
 
       client.addEventListener("login", () => {
