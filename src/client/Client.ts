@@ -290,6 +290,10 @@ export class Client extends TypedEventTarget<ClientEvents> {
         this.handleDisguisedChat(new Clientbound.DisguisedChat(buf));
         break;
       }
+      case Clientbound.SetHealth.ID: {
+        const {health, food, foodSaturation: saturation} = new Clientbound.SetHealth(buf);
+        this.dispatchEvent("healthChange", {health, food, saturation})
+      }
     }
   }
 

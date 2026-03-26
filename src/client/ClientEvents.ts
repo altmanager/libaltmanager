@@ -8,4 +8,5 @@ export interface ClientEvents {
   disconnect: void;
   chat: NBT;
   kick: string | NBT;
+  healthChange: {health: number, food: number, saturation: number};
 }

@@ -1,4 +1,4 @@
-import nbt from "prismarine-nbt";
+import type nbt from "prismarine-nbt";
 import type { Session } from "./Session.ts";
 import { PlayerStatus } from "./PlayerStatus.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
@@ -14,6 +14,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
   readonly #session: Session;
   private client: Client | null = null;
   #status: PlayerStatus = PlayerStatus.DISCONNECTED;
+  #health: number = 0;
 
   /**
    * Creates a new {@link Player} with the given session.
@@ -56,6 +57,13 @@ export class Player extends TypedEventTarget<PlayerEvents> {
    */
   public get status(): PlayerStatus {
     return this.#status;
+  }
+
+  /**
+   * Current health of the player.
+   */
+  public get health(): number {
+    return this.#health;
   }
 
   /**
@@ -104,6 +112,11 @@ export class Player extends TypedEventTarget<PlayerEvents> {
             : Player.simplifyComponent(reason.detail),
         );
       });
+
+      client.addEventListener("healthChange", (e) => {
+        this.#health = e.detail.health;
+        this.dispatchEvent("statusChange", void 0);
+      })
 
       this.#status = PlayerStatus.CONNECTING;
       this.dispatchEvent("statusChange", void 0);
