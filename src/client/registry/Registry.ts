@@ -1,13 +1,13 @@
-export class Registry<T> {
-  public readonly entries: ReadonlyMap<string, T>;
+export class Registry<K, V> {
+  public readonly entries: ReadonlyMap<K, V>;
 
-  public constructor(entries: { id: string; value: T }[]) {
-    this.entries = new Map<string, T>(
+  public constructor(entries: { id: K; value: V }[]) {
+    this.entries = new Map<K, V>(
       entries.map((entry) => [entry.id, entry.value]),
     );
   }
 
-  public getById(id: string): T | undefined {
+  public getById(id: K): V | undefined {
     return this.entries.get(id);
   }
 }
