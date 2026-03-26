@@ -42,7 +42,7 @@ import { RegistryData } from "./packet/server/RegistryData.ts";
 import { RegistryManager } from "./registry/RegistryManager.ts";
 import { RegistryId } from "./registry/RegistryId.ts";
 import { Registry } from "./registry/Registry.ts";
-import { ChatType } from "./registry/ChatType.ts";
+import type { ChatType } from "./registry/ChatType.ts";
 import { DisguisedChat } from "./packet/server/DisguisedChat.ts";
 
 /**
@@ -70,7 +70,20 @@ export class Client extends TypedEventTarget<ClientEvents> {
     this.brand = brand;
   }
 
-  private static parseChatType(entry: any): ChatType {
+  private static parseChatType(
+    entry: {
+      chat: {
+        translation_key: ChatType["chat"]["translationKey"];
+        parameters: ChatType["chat"]["parameters"];
+        style?: ChatType["chat"]["style"];
+      };
+      narration: {
+        translation_key: ChatType["narration"]["translationKey"];
+        parameters: ChatType["narration"]["parameters"];
+        style?: ChatType["narration"]["style"];
+      };
+    },
+  ): ChatType {
     return {
       chat: {
         translationKey: entry.chat.translation_key,
