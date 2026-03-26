@@ -1,4 +1,5 @@
 export * from "./Chat.ts";
+export * from "./ClientCommand.ts";
 export * from "./ClientInformation.ts";
 export * from "./ConfigurationAcknowledged.ts";
 export * from "./ConfigurationKeepAlive.ts";

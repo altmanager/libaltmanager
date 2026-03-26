@@ -14,6 +14,7 @@ export * from "./LoginDisconnect.ts";
 export * from "./LoginCompression.ts";
 export * from "./ResourcePackPush.ts";
 export * from "./SelectKnownPacks.ts";
+export * from "./SetHealth.ts";
 export * from "./StartConfiguration.ts";
 export * from "./FinishConfiguration.ts";
 export * from "./PlayResourcePackPush.ts";

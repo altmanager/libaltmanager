@@ -97,6 +97,15 @@ export class Client extends TypedEventTarget<ClientEvents> {
   }
 
   /**
+   * Resurrects the player.
+   */
+  public async respawn(): Promise<void> {
+    await this.sendPacket(
+      new Serverbound.ClientCommand(Serverbound.ClientCommand.RESPAWN),
+    );
+  }
+
+  /**
    * Sends an unsigned chat message.
    *
    * @param message Message to send.
@@ -289,6 +298,11 @@ export class Client extends TypedEventTarget<ClientEvents> {
       case Clientbound.DisguisedChat.ID: {
         this.handleDisguisedChat(new Clientbound.DisguisedChat(buf));
         break;
+      }
+      case Clientbound.SetHealth.ID: {
+        const { health, food, foodSaturation: saturation } = new Clientbound
+          .SetHealth(buf);
+        this.dispatchEvent("healthChange", { health, food, saturation });
       }
     }
   }

@@ -78,6 +78,16 @@ export abstract class ServerPacket extends Packet {
     return view.getInt32(0, false);
   }
 
+  protected readFloat(): number {
+    const view = new DataView(
+      this.buf.buffer,
+      this.buf.byteOffset + this.offset,
+      4,
+    );
+    this.offset += 4;
+    return view.getFloat32(0, false);
+  }
+
   protected readUuid(): string {
     const hex = Array.from(this.buf.subarray(this.offset, this.offset + 16))
       .map((b) => b.toString(16).padStart(2, "0"))
