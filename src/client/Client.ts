@@ -32,6 +32,7 @@ import { RegistryId } from "./registry/RegistryId.ts";
 import { Registry } from "./registry/Registry.ts";
 import type { ChatType } from "./registry/ChatType.ts";
 import { DisguisedChat } from "./packet/server/DisguisedChat.ts";
+import { IndexedRegistry } from "./registry/IndexedRegistry.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -248,7 +249,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
           case RegistryId.CHAT_TYPE:
             this.registries.set(
               RegistryId.CHAT_TYPE,
-              new Registry(data.map((entry) => ({
+              new IndexedRegistry(data.map((entry) => ({
                 id: entry.id,
                 value: Client.parseChatType(entry.data),
               }))),
