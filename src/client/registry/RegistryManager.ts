@@ -1,19 +1,24 @@
 import type { RegistryId } from "./RegistryId.ts";
-import type { Registry } from "./Registry.ts";
 import type { RegistryTypeMap } from "./RegistryTypeMap.ts";
 
 export class RegistryManager {
-  private readonly registries = {} as {
-    [K in RegistryId]: Registry<RegistryTypeMap[K]>;
-  };
+  private readonly registries: Partial<
+    {
+      [K in RegistryId]: RegistryTypeMap[K];
+    }
+  > = {};
 
-  public get<K extends RegistryId>(id: K): Registry<RegistryTypeMap[K]> {
-    return this.registries[id];
+  public get<K extends RegistryId>(id: K): RegistryTypeMap[K] {
+    const registry = this.registries[id];
+    if (registry === undefined) {
+      throw new Error(`Registry ${id} is not registered`);
+    }
+    return registry;
   }
 
   public set<K extends RegistryId>(
     id: K,
-    registry: Registry<RegistryTypeMap[K]>,
+    registry: RegistryTypeMap[K],
   ): void {
     this.registries[id] = registry;
   }
