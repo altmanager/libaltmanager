@@ -300,8 +300,9 @@ export class Client extends TypedEventTarget<ClientEvents> {
         break;
       }
       case Clientbound.SetHealth.ID: {
-        const {health, food, foodSaturation: saturation} = new Clientbound.SetHealth(buf);
-        this.dispatchEvent("healthChange", {health, food, saturation})
+        const { health, food, foodSaturation: saturation } = new Clientbound
+          .SetHealth(buf);
+        this.dispatchEvent("healthChange", { health, food, saturation });
       }
     }
   }

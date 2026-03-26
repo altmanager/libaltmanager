@@ -116,7 +116,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
       client.addEventListener("healthChange", (e) => {
         this.#health = e.detail.health;
         this.dispatchEvent("statusChange", void 0);
-      })
+      });
 
       this.#status = PlayerStatus.CONNECTING;
       this.dispatchEvent("statusChange", void 0);

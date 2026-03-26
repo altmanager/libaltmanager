@@ -82,7 +82,7 @@ export abstract class ServerPacket extends Packet {
     const view = new DataView(
       this.buf.buffer,
       this.buf.byteOffset + this.offset,
-      4
+      4,
     );
     this.offset += 4;
     return view.getFloat32(0, false);
