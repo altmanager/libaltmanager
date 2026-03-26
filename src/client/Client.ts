@@ -220,9 +220,11 @@ export class Client extends TypedEventTarget<ClientEvents> {
         );
         break;
       case ConfigurationResourcePackPush.ID:
-        await this.handleResourcePackPush(
-          new ConfigurationResourcePackPush(buf),
-          new ConfigurationResourcePack("", 0),
+        await this.sendPacket(
+          new ConfigurationResourcePack(
+            new ConfigurationResourcePackPush(buf).uuid,
+            0,
+          ),
         );
         break;
       case ServerSelectKnownPacks.ID:
@@ -280,9 +282,8 @@ export class Client extends TypedEventTarget<ClientEvents> {
         this.state = State.CONFIGURATION;
         break;
       case PlayResourcePackPush.ID:
-        await this.handleResourcePackPush(
-          new PlayResourcePackPush(buf),
-          new PlayResourcePack("", 0),
+        await this.sendPacket(
+          new PlayResourcePack(new PlayResourcePackPush(buf).uuid, 0),
         );
         break;
       case PlayDisconnect.ID:
@@ -335,21 +336,6 @@ export class Client extends TypedEventTarget<ClientEvents> {
 
     await this.sendPacket(new Key(encryptedSecret, encryptedVerifyToken));
     this.connection.enableEncryption(sharedSecret);
-  }
-
-  private async handleResourcePackPush(
-    packet: ConfigurationResourcePackPush | PlayResourcePackPush,
-    response: ConfigurationResourcePack | PlayResourcePack,
-  ): Promise<void> {
-    await this.sendPacket(
-      new (response.constructor as new (
-        uuid: string,
-        result: number,
-      ) => typeof response)(
-        packet.uuid,
-        0,
-      ),
-    );
   }
 
   private async handleTransfer(
