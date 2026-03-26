@@ -52,7 +52,6 @@ export class Client extends TypedEventTarget<ClientEvents> {
   private static readonly KEEPALIVE_TIMEOUT_MS = 30_000;
 
   private readonly session: Session;
-  private readonly brand: string;
   private connection: Connection = new Connection();
   private state: State = State.LOGIN;
   private transferring = false;
@@ -62,12 +61,10 @@ export class Client extends TypedEventTarget<ClientEvents> {
 
   /**
    * @param session Session to authenticate with.
-   * @param brand Client brand string sent to the server.
    */
-  public constructor(session: Session, brand: string) {
+  public constructor(session: Session) {
     super();
     this.session = session;
-    this.brand = brand;
   }
 
   private static parseChatType(
