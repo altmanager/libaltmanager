@@ -142,6 +142,16 @@ export class Player extends TypedEventTarget<PlayerEvents> {
   }
 
   /**
+   * Resurrects the player.
+   */
+  public async respawn(): Promise<void> {
+    if (this.client === null) {
+      throw new Error("Player is not connected");
+    }
+    await this.client.respawn();
+  }
+
+  /**
    * Sends an unsigned chat message.
    *
    * @param message Message to send.
