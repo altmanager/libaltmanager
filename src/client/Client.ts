@@ -111,6 +111,10 @@ export class Client extends TypedEventTarget<ClientEvents> {
    * @param message Message to send.
    */
   public async chat(message: string): Promise<void> {
+    if (message.startsWith("/")) {
+      return this.command(message.slice(1));
+    }
+
     await this.sendPacket(
       new Serverbound.Chat(
         message.slice(0, 256),
@@ -125,6 +129,18 @@ export class Client extends TypedEventTarget<ClientEvents> {
     if (message.length > 256) {
       await this.chat(message.slice(256));
     }
+  }
+
+  /**
+   * Sends an unsigned command.
+   *
+   * @param command Command to send, excluding the first `/`.
+   */
+  public async command(command: string): Promise<void> {
+    if (command.length > 32767) {
+      throw new Error("Command too long");
+    }
+    await this.sendPacket(new Serverbound.ChatCommand(command));
   }
 
   private async readLoop(): Promise<void> {

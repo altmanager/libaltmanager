@@ -162,4 +162,16 @@ export class Player extends TypedEventTarget<PlayerEvents> {
     }
     return await this.client.chat(message);
   }
+
+  /**
+   * Sends an unsigned command.
+   *
+   * @param command Command to send, excluding the first `/`.
+   */
+  public async command(command: string): Promise<void> {
+    if (this.client === null) {
+      throw new Error("Player is not connected");
+    }
+    return await this.client.command(command);
+  }
 }
