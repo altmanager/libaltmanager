@@ -1,5 +1,5 @@
 import aesjs from "aes-js";
-import { deflateRawSync, inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 import { VarInt } from "./VarInt.ts";
 
 /**
@@ -203,7 +203,7 @@ export class Connection {
   private static compress(
     data: Uint8Array<ArrayBuffer>,
   ): Uint8Array<ArrayBuffer> {
-    return deflateRawSync(data) as Uint8Array<ArrayBuffer>;
+    return deflateSync(data) as Uint8Array<ArrayBuffer>;
   }
 
   private static concat(
