@@ -34,7 +34,7 @@ categories:
     collapse-after: 5
   - title: 📦 Other
 
-change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-template: "- $TITLE @$AUTHOR ([#$NUMBER](https://github.com/altmanager/libaltmanager/pull/$NUMBER))"
 change-title-escapes: \<*_&
 
 template: |
@@ -42,4 +42,4 @@ template: |
 
   $CHANGES
 
-  **Full Changelog**: $PREVIOUS_TAG...v$RESOLVED_VERSION
+  **Full Changelog**: [`$PREVIOUS_TAG...v$RESOLVED_VERSION`](https://github.com/altmanager/libaltmanager/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION)
