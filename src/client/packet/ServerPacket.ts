@@ -130,6 +130,25 @@ export abstract class ServerPacket extends Packet {
     return id - 1;
   }
 
+  protected readEnumSet<T extends number>(numVariants: number): ReadonlySet<T> {
+    const byteCount = Math.ceil(numVariants / 8);
+    const bytes = this.buf.subarray(this.offset, this.offset + byteCount);
+    this.offset += byteCount;
+
+    const active = new Set<T>();
+
+    for (let i = 0; i < numVariants; i++) {
+      const byteIndex = Math.floor(i / 8);
+      const bitIndex = i % 8;
+
+      if ((bytes[byteIndex] & (1 << bitIndex)) !== 0) {
+        active.add(i as T);
+      }
+    }
+
+    return active;
+  }
+
   protected readRemaining(): Uint8Array<ArrayBuffer> {
     return this.buf.slice(this.offset);
   }
