@@ -34,14 +34,8 @@ export abstract class ServerPacket extends Packet {
     return new TextDecoder().decode(bytes);
   }
 
-  protected readByteArray(): Uint8Array<ArrayBuffer> {
-    const length = this.readVarInt();
-    const bytes = this.buf.slice(
-      this.offset,
-      this.offset + length,
-    );
-    this.offset += length;
-    return bytes;
+  protected readPrefixedByteArray(): Uint8Array<ArrayBuffer> {
+    return new Uint8Array(this.readPrefixedArray(() => this.readByte()));
   }
 
   protected readLong(): bigint {
