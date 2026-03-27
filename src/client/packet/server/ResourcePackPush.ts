@@ -35,6 +35,6 @@ export abstract class ResourcePackPush extends ServerPacket {
     this.url = this.readString();
     this.hash = this.readString();
     this.forced = this.readBoolean();
-    this.prompt = this.readOptional(() => this.readString());
+    this.prompt = this.readPrefixedOptional(() => this.readString());
   }
 }

@@ -101,7 +101,7 @@ export abstract class ServerPacket extends Packet {
     ].join("-");
   }
 
-  protected readOptional<T>(cb: () => T): T | null {
+  protected readPrefixedOptional<T>(cb: () => T): T | null {
     return this.readBoolean() ? cb() : null;
   }
 
