@@ -10,6 +10,8 @@ export * from "./DisguisedChat.ts";
 export * from "./LoginFinished.ts";
 export * from "./PlayKeepAlive.ts";
 export * from "./PlayDisconnect.ts";
+export * from "./PlayerInfoRemove.ts";
+export * from "./PlayerInfoUpdate.ts";
 export * from "./LoginDisconnect.ts";
 export * from "./LoginCompression.ts";
 export * from "./ResourcePackPush.ts";
