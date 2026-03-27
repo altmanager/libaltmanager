@@ -62,6 +62,10 @@ export abstract class ServerPacket extends Packet {
     return view.getUint16(0, false);
   }
 
+  private readByte(): number {
+    return this.buf[this.offset++];
+  }
+
   protected readInt(): number {
     const view = new DataView(
       this.buf.buffer,
