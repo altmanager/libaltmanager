@@ -9,7 +9,7 @@ version-resolver:
   patch:
     labels:
       - semver:patch
-  default: skip
+  default: patch
 
 categories:
   - title: ⚠️ Breaking Changes
