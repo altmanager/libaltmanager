@@ -449,8 +449,13 @@ export class Client extends TypedEventTarget<ClientEvents> {
     return BigInt.asIntN(160, BigInt(`0x${hex}`)).toString(16);
   }
 
-  private sendPacket(packet: ClientPacket): Promise<void> {
-    return this.connection.writePacket(packet.serialize());
+  private async sendPacket(packet: ClientPacket): Promise<void> {
+    try {
+      return await this.connection.writePacket(packet.serialize());
+    } catch (e) {
+      console.error(`[Client] Failed to send packet`, e);
+      this.handleDisconnect();
+    }
   }
 
   private startKeepAliveWatchdog(): void {
