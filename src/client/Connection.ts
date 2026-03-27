@@ -76,7 +76,7 @@ export class Connection {
    * Returns `null` on clean remote close.
    */
   public async readPacket(): Promise<Uint8Array<ArrayBuffer> | null> {
-    const packetLength = await this.readVarInt();
+    const packetLength = await VarInt.read(() => this.readOneByte());
     if (packetLength === null) return null;
 
     const raw = await this.readExact(packetLength);
@@ -127,24 +127,6 @@ export class Connection {
     }
 
     await this.writeAll(framed);
-  }
-
-  private async readVarInt(): Promise<number | null> {
-    let value = 0;
-    let shift = 0;
-
-    for (let i = 0; i < 5; i++) {
-      const byte = await this.readOneByte();
-      if (byte === null) {
-        if (i === 0) return null;
-        throw new Error("Connection closed mid-VarInt");
-      }
-      value |= (byte & 0x7f) << shift;
-      if ((byte & 0x80) === 0) return value;
-      shift += 7;
-    }
-
-    throw new Error("VarInt exceeds 5 bytes");
   }
 
   private async readExact(
