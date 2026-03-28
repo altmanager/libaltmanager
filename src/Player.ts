@@ -1,3 +1,4 @@
+import { kJSON } from "@atikayda/kjson";
 import type nbt from "prismarine-nbt";
 import type { NBT } from "prismarine-nbt";
 import type { Session } from "./Session.ts";
@@ -140,7 +141,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         this.dispatchEvent(
           "kick",
           typeof reason.detail === "string"
-            ? JSON.parse(reason.detail)
+            ? kJSON.parse(reason.detail)
             : Player.simplifyComponent(reason.detail),
         );
       });
