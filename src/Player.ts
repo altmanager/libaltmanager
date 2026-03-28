@@ -83,7 +83,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
   public get onlinePlayers(): {
     uuid: string;
     name: string;
-    displayName?: NBT;
+    displayName?: unknown;
     ping: number;
     priority: number;
     gamemode: number;
@@ -92,6 +92,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
     return Array.from(this.#onlinePlayers.entries()).map(([uuid, player]) => ({
       uuid,
       ...player,
+      displayName: player.displayName === undefined ? undefined : Player.simplifyComponent(player.displayName),
     })).sort((a, b) => b.priority - a.priority);
   }
 
