@@ -1,9 +1,11 @@
 import type nbt from "prismarine-nbt";
+import type { NBT } from "prismarine-nbt";
 import type { Session } from "./Session.ts";
 import { PlayerStatus } from "./PlayerStatus.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
 import type { PlayerEvents } from "./PlayerEvents.ts";
 import { Client } from "./client/Client.ts";
+import { PlayerInfoAction } from "./client/packet/server/PlayerInfoUpdate.ts";
 
 /**
  * Represents a controllable Minecraft player.
@@ -15,6 +17,14 @@ export class Player extends TypedEventTarget<PlayerEvents> {
   private client: Client | null = null;
   #status: PlayerStatus = PlayerStatus.DISCONNECTED;
   #health: number = 0;
+  #onlinePlayers = new Map<string, {
+    name: string;
+    displayName?: NBT;
+    ping: number;
+    priority: number;
+    gamemode: number;
+    listed: boolean;
+  }>;
 
   /**
    * Creates a new {@link Player} with the given session.
@@ -67,6 +77,24 @@ export class Player extends TypedEventTarget<PlayerEvents> {
   }
 
   /**
+   * List of online players.
+   */
+  public get onlinePlayers(): {
+    uuid: string;
+    name: string;
+    displayName?: NBT;
+    ping: number;
+    priority: number;
+    gamemode: number;
+    listed: boolean;
+  }[] {
+    return Array.from(this.#onlinePlayers.entries()).map(([uuid, player]) => ({
+      uuid,
+      ...player,
+    })).sort((a, b) => b.priority - a.priority);
+  }
+
+  /**
    * Connects this player to a Minecraft server.
    *
    * @param address The server address to connect to.
@@ -94,10 +122,13 @@ export class Player extends TypedEventTarget<PlayerEvents> {
       }, { once: true });
 
       client.addEventListener("disconnect", () => {
+        if (this.#status === PlayerStatus.CONNECTING) {
+          reject(new Error("Disconnected before login"));
+        }
         this.#status = PlayerStatus.DISCONNECTED;
         this.client = null;
+        this.#onlinePlayers.clear();
         this.dispatchEvent("statusChange", void 0);
-        reject(new Error("Disconnected before login"));
       }, { once: true });
 
       client.addEventListener("chat", (message) => {
@@ -116,6 +147,33 @@ export class Player extends TypedEventTarget<PlayerEvents> {
       client.addEventListener("healthChange", (e) => {
         this.#health = e.detail.health;
         this.dispatchEvent("statusChange", void 0);
+      });
+
+      client.addEventListener("playerListRemove", (e) => {
+        for (const uuid of e.detail) {
+          this.#onlinePlayers.delete(uuid);
+        }
+      });
+
+      client.addEventListener("playerListUpdate", (e) => {
+        for (const {uuid, actions} of e.detail) {
+          const existing = this.#onlinePlayers.get(uuid);
+
+          if (existing === undefined && actions[PlayerInfoAction.ADD_PLAYER] === undefined) {
+            continue;
+          }
+
+          const entry = existing ?? {} as Partial<NonNullable<typeof existing>>;
+
+          entry.name = actions[PlayerInfoAction.ADD_PLAYER]?.name ?? existing!.name;
+          entry.displayName = actions[PlayerInfoAction.UPDATE_DISPLAY_NAME]?.displayName ?? existing?.displayName;
+          entry.ping = actions[PlayerInfoAction.UPDATE_LATENCY]?.ping ?? existing?.ping ?? 0;
+          entry.priority = actions[PlayerInfoAction.UPDATE_LIST_PRIORITY]?.priority ?? existing?.priority ?? 0;
+          entry.gamemode = actions[PlayerInfoAction.UPDATE_GAME_MODE]?.gamemode ?? existing?.gamemode ?? 0;
+          entry.listed = actions[PlayerInfoAction.UPDATE_LISTED]?.listed ?? existing?.listed ?? true;
+
+          this.#onlinePlayers.set(uuid, entry);
+        }
       });
 
       this.#status = PlayerStatus.CONNECTING;
