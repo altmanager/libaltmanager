@@ -128,6 +128,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         this.#status = PlayerStatus.DISCONNECTED;
         this.client = null;
         this.#onlinePlayers.clear();
+        this.dispatchEvent("playerListChange", void 0);
         this.dispatchEvent("statusChange", void 0);
       }, { once: true });
 
@@ -153,6 +154,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         for (const uuid of e.detail) {
           this.#onlinePlayers.delete(uuid);
         }
+        this.dispatchEvent("playerListChange", void 0);
       });
 
       client.addEventListener("playerListUpdate", (e) => {
@@ -174,6 +176,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
 
           this.#onlinePlayers.set(uuid, entry);
         }
+        this.dispatchEvent("playerListChange", void 0);
       });
 
       this.#status = PlayerStatus.CONNECTING;
