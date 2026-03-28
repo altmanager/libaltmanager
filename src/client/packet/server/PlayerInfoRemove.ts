@@ -17,6 +17,6 @@ export class PlayerInfoRemove extends ServerPacket {
 
   public constructor(buf: Uint8Array<ArrayBuffer>) {
     super(buf);
-    this.uuids = this.readPrefixedArray(this.readUuid);
+    this.uuids = this.readPrefixedArray(() => this.readUuid());
   }
 }
