@@ -321,6 +321,12 @@ export class Client extends TypedEventTarget<ClientEvents> {
         this.dispatchEvent("healthChange", { health, food, saturation });
         break;
       }
+      case Clientbound.PlayerInfoRemove.ID:
+        this.dispatchEvent("playerListRemove", new Clientbound.PlayerInfoRemove(buf).uuids);
+        break;
+      case Clientbound.PlayerInfoUpdate.ID:
+        this.dispatchEvent("playerListUpdate", new Clientbound.PlayerInfoUpdate(buf).players);
+        break;
     }
   }
 
