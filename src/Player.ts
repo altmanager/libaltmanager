@@ -24,7 +24,7 @@ export class Player extends TypedEventTarget<PlayerEvents> {
     priority: number;
     gamemode: number;
     listed: boolean;
-  }>;
+  }>();
 
   /**
    * Creates a new {@link Player} with the given session.
@@ -158,21 +158,33 @@ export class Player extends TypedEventTarget<PlayerEvents> {
       });
 
       client.addEventListener("playerListUpdate", (e) => {
-        for (const {uuid, actions} of e.detail) {
+        for (const { uuid, actions } of e.detail) {
           const existing = this.#onlinePlayers.get(uuid);
 
-          if (existing === undefined && actions[PlayerInfoAction.ADD_PLAYER] === undefined) {
+          if (
+            existing === undefined &&
+            actions[PlayerInfoAction.ADD_PLAYER] === undefined
+          ) {
             continue;
           }
 
           const entry = existing ?? {} as Partial<NonNullable<typeof existing>>;
 
-          entry.name = actions[PlayerInfoAction.ADD_PLAYER]?.name ?? existing!.name;
-          entry.displayName = actions[PlayerInfoAction.UPDATE_DISPLAY_NAME]?.displayName ?? existing?.displayName;
-          entry.ping = actions[PlayerInfoAction.UPDATE_LATENCY]?.ping ?? existing?.ping ?? 0;
-          entry.priority = actions[PlayerInfoAction.UPDATE_LIST_PRIORITY]?.priority ?? existing?.priority ?? 0;
-          entry.gamemode = actions[PlayerInfoAction.UPDATE_GAME_MODE]?.gamemode ?? existing?.gamemode ?? 0;
-          entry.listed = actions[PlayerInfoAction.UPDATE_LISTED]?.listed ?? existing?.listed ?? true;
+          entry.name = actions[PlayerInfoAction.ADD_PLAYER]?.name ??
+            existing!.name;
+          entry.displayName =
+            actions[PlayerInfoAction.UPDATE_DISPLAY_NAME]?.displayName ??
+              existing?.displayName;
+          entry.ping = actions[PlayerInfoAction.UPDATE_LATENCY]?.ping ??
+            existing?.ping ?? 0;
+          entry.priority =
+            actions[PlayerInfoAction.UPDATE_LIST_PRIORITY]?.priority ??
+              existing?.priority ?? 0;
+          entry.gamemode =
+            actions[PlayerInfoAction.UPDATE_GAME_MODE]?.gamemode ??
+              existing?.gamemode ?? 0;
+          entry.listed = actions[PlayerInfoAction.UPDATE_LISTED]?.listed ??
+            existing?.listed ?? true;
 
           this.#onlinePlayers.set(uuid, entry);
         }
