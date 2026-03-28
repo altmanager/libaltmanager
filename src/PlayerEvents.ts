@@ -16,4 +16,9 @@ export interface PlayerEvents {
    * Fired when the player is kicked from the server.
    */
   kick: unknown;
+
+  /**
+   * Fired when the list of online players changes.
+   */
+  playerListChange: void;
 }

@@ -16,6 +16,6 @@ export class DisguisedChat extends ServerPacket {
     this.message = this.readNbt();
     this.chatType = this.readIdOr(() => this.readNbt());
     this.senderName = this.readNbt();
-    this.targetName = this.readOptional(() => this.readNbt());
+    this.targetName = this.readPrefixedOptional(() => this.readNbt());
   }
 }

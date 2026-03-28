@@ -34,8 +34,8 @@ export class Hello extends ServerPacket {
   public constructor(buf: Uint8Array<ArrayBuffer>) {
     super(buf);
     this.serverId = this.readString();
-    this.publicKey = this.readByteArray();
-    this.verifyToken = this.readByteArray();
+    this.publicKey = this.readPrefixedByteArray();
+    this.verifyToken = this.readPrefixedByteArray();
     this.shouldAuthenticate = this.readBoolean();
   }
 }

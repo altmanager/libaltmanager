@@ -14,7 +14,7 @@ export class RegistryData extends ServerPacket {
     this.registryId = this.readString();
     this.entries = this.readPrefixedArray(() => ({
       id: this.readString(),
-      data: this.readOptional(() => this.readNbt()),
+      data: this.readPrefixedOptional(() => this.readNbt()),
     }));
   }
 }

@@ -34,14 +34,8 @@ export abstract class ServerPacket extends Packet {
     return new TextDecoder().decode(bytes);
   }
 
-  protected readByteArray(): Uint8Array<ArrayBuffer> {
-    const length = this.readVarInt();
-    const bytes = this.buf.slice(
-      this.offset,
-      this.offset + length,
-    );
-    this.offset += length;
-    return bytes;
+  protected readPrefixedByteArray(): Uint8Array<ArrayBuffer> {
+    return new Uint8Array(this.readPrefixedArray(() => this.readByte()));
   }
 
   protected readLong(): bigint {
@@ -66,6 +60,10 @@ export abstract class ServerPacket extends Packet {
     );
     this.offset += 2;
     return view.getUint16(0, false);
+  }
+
+  private readByte(): number {
+    return this.buf[this.offset++];
   }
 
   protected readInt(): number {
@@ -98,10 +96,11 @@ export abstract class ServerPacket extends Packet {
       hex.slice(8, 12),
       hex.slice(12, 16),
       hex.slice(16, 20),
+      hex.slice(20, 32),
     ].join("-");
   }
 
-  protected readOptional<T>(cb: () => T): T | null {
+  protected readPrefixedOptional<T>(cb: () => T): T | null {
     return this.readBoolean() ? cb() : null;
   }
 
@@ -129,6 +128,25 @@ export abstract class ServerPacket extends Packet {
     const id = this.readVarInt();
     if (id === 0) return readInline();
     return id - 1;
+  }
+
+  protected readEnumSet<T extends number>(numVariants: number): ReadonlySet<T> {
+    const byteCount = Math.ceil(numVariants / 8);
+    const bytes = this.buf.subarray(this.offset, this.offset + byteCount);
+    this.offset += byteCount;
+
+    const active = new Set<T>();
+
+    for (let i = 0; i < numVariants; i++) {
+      const byteIndex = Math.floor(i / 8);
+      const bitIndex = i % 8;
+
+      if ((bytes[byteIndex] & (1 << bitIndex)) !== 0) {
+        active.add(i as T);
+      }
+    }
+
+    return active;
   }
 
   protected readRemaining(): Uint8Array<ArrayBuffer> {
