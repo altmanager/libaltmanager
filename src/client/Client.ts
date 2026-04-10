@@ -14,6 +14,7 @@ import type { ChatType } from "./registry/ChatType.ts";
 import { IndexedRegistry } from "./registry/IndexedRegistry.ts";
 import * as Serverbound from "./packet/client/mod.ts";
 import * as Clientbound from "./packet/server/mod.ts";
+import { SessionExpiredError } from "./error/SessionExpiredError.ts";
 
 /**
  * Manages the Minecraft Java Edition protocol state machine.
@@ -360,7 +361,16 @@ export class Client extends TypedEventTarget<ClientEvents> {
     ) as Uint8Array<ArrayBuffer>;
 
     if (packet.shouldAuthenticate) {
-      await this.joinSession(packet.serverId, sharedSecret, packet.publicKey);
+      try {
+        await this.joinSession(packet.serverId, sharedSecret, packet.publicKey);
+      } catch (e) {
+        if (!(e instanceof SessionExpiredError)) {
+          throw e;
+        }
+        this.dispatchEvent("sessionExpired", e);
+        this.handleDisconnect();
+        return;
+      }
     }
 
     await this.sendPacket(
@@ -450,9 +460,7 @@ export class Client extends TypedEventTarget<ClientEvents> {
     );
 
     if (!response.ok) {
-      throw new Error(
-        `Session join failed: ${response.status} ${await response.text()}`,
-      );
+      throw new SessionExpiredError(response.status, await response.text());
     }
   }
 

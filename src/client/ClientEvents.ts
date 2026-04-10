@@ -1,5 +1,6 @@
 import type { NBT } from "prismarine-nbt";
 import type { PlayerInfo } from "./packet/server/PlayerInfoUpdate.ts";
+import { SessionExpiredError } from "./error/SessionExpiredError.ts";
 
 /**
  * Defines the events emitted by a {@link import("./Client.ts").Client}.
@@ -12,4 +13,5 @@ export interface ClientEvents {
   healthChange: { health: number; food: number; saturation: number };
   playerListRemove: string[];
   playerListUpdate: PlayerInfo[];
+  sessionExpired: SessionExpiredError;
 }

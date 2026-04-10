@@ -123,6 +123,12 @@ export class Player extends TypedEventTarget<PlayerEvents> {
         resolve();
       }, { once: true });
 
+      client.addEventListener("sessionExpired", (e) => {
+        this.#status = PlayerStatus.DISCONNECTED;
+        this.client = null;
+        reject(e.detail);
+      });
+
       client.addEventListener("disconnect", () => {
         if (this.#status === PlayerStatus.CONNECTING) {
           reject(new Error("Disconnected before login"));
